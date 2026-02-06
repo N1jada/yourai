@@ -34,21 +34,24 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit(backend/src/**/*.py)",
-        "command": "cd backend && uv run ruff format \"$FILE_PATH\" 2>/dev/null; uv run ruff check --fix \"$FILE_PATH\" 2>/dev/null; echo '{}'",
-        "timeout": 15
-      },
-      {
-        "matcher": "Edit(frontend/src/**/*.ts|frontend/src/**/*.tsx)",
-        "command": "cd frontend && pnpm prettier --write \"$FILE_PATH\" 2>/dev/null; echo '{}'",
-        "timeout": 15
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -qE '\\.py$'; then cd backend && uv run ruff format \"$file_path\" 2>/dev/null; uv run ruff check --fix \"$file_path\" 2>/dev/null; fi; if echo \"$file_path\" | grep -qE '\\.(ts|tsx)$'; then cd frontend && pnpm prettier --write \"$file_path\" 2>/dev/null; fi; }"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo '{\"block\": true, \"message\": \"Cannot edit on main branch. Create a work package branch first: git checkout -b wp<N>/<description>\"}' >&2; exit 2; }",
-        "timeout": 5
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo '{\"decision\": \"block\", \"reason\": \"Cannot edit on main branch. Create a work package branch first: git checkout -b wp<N>/<description>\"}' && exit 2; }"
+          }
+        ]
       }
     ]
   }
