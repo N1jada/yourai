@@ -1,4 +1,4 @@
-"""Shared test fixtures for WP1 core tests.
+"""Shared test fixtures for WP1 core and WP3 knowledge tests.
 
 Uses in-memory SQLite for unit tests (fast, no DB required).
 Integration tests should use the real PostgreSQL database.
@@ -13,8 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from yourai.core.auth import AuthService
 from yourai.core.database import Base, get_db_session
-from yourai.core.enums import UserStatus
+from yourai.core.enums import (
+    DocumentProcessingState,
+    KnowledgeBaseCategory,
+    KnowledgeBaseSourceType,
+    UserStatus,
+)
 from yourai.core.models import Permission, Role, RolePermission, Tenant, User, UserRole
+from yourai.knowledge.models import Document, KnowledgeBase
 
 # In-memory async SQLite for unit tests
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
@@ -152,3 +158,49 @@ async def async_client(
         headers={"Authorization": f"Bearer {auth_token}"},
     ) as client:
         yield client
+
+
+# ---------------------------------------------------------------------------
+# WP3 Knowledge fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def sample_knowledge_base(
+    test_session: AsyncSession,
+    sample_tenant: Tenant,
+) -> KnowledgeBase:
+    """Create a sample knowledge base."""
+    kb = KnowledgeBase(
+        id=uuid_utils.uuid7(),
+        tenant_id=sample_tenant.id,
+        name="Test Legislation KB",
+        category=KnowledgeBaseCategory.LEGISLATION,
+        source_type=KnowledgeBaseSourceType.UPLOADED,
+    )
+    test_session.add(kb)
+    await test_session.flush()
+    return kb
+
+
+@pytest.fixture
+async def sample_document(
+    test_session: AsyncSession,
+    sample_tenant: Tenant,
+    sample_knowledge_base: KnowledgeBase,
+) -> Document:
+    """Create a sample document in the uploaded state."""
+    doc = Document(
+        id=uuid_utils.uuid7(),
+        tenant_id=sample_tenant.id,
+        knowledge_base_id=sample_knowledge_base.id,
+        name="test_document.pdf",
+        document_uri="/tmp/test_uploads/test_document.pdf",
+        mime_type="application/pdf",
+        byte_size=1024,
+        hash="abc123",
+        processing_state=DocumentProcessingState.UPLOADED,
+    )
+    test_session.add(doc)
+    await test_session.flush()
+    return doc

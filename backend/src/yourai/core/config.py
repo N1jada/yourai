@@ -40,6 +40,29 @@ class Settings(BaseSettings):
     sse_replay_window_seconds: int = 300  # 5 minute replay buffer
     sse_heartbeat_interval_seconds: int = 15
 
+    # Knowledge / Document Pipeline
+    upload_dir: str = "./uploads"
+    max_upload_size_bytes: int = 50 * 1024 * 1024  # 50 MB
+
+    # Embedding
+    embedding_provider: str = "voyage"
+    embedding_model: str = "voyage-3-large"
+    embedding_dimensions: int = 1024
+    embedding_batch_size: int = 128
+    voyage_api_key: str = ""
+
+    # Chunking
+    chunk_target_tokens: int = 512
+    chunk_max_tokens: int = 1024
+    chunk_overlap_tokens: int = 77  # ~15% of 512
+
+    # Reranker
+    reranker_provider: str = "noop"
+
+    # Celery
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+
     # Lex
     lex_base_url: str = "http://localhost:8080"
     lex_public_fallback_url: str = "https://lex.lab.i.ai.gov.uk"

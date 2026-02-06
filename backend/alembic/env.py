@@ -7,6 +7,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import yourai.knowledge.models  # noqa: F401 — register models with Base
 from yourai.core.database import Base
 
 config = context.config
