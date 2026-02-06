@@ -3,10 +3,9 @@
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
+from sqlalchemy import ForeignKey, Uuid, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from yourai.core.config import settings
 
@@ -30,11 +29,14 @@ async def set_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
     """Set the RLS tenant context for the current transaction.
 
     MUST be called at the start of every request that touches tenant-scoped data.
+    On non-PostgreSQL backends (e.g. SQLite in tests), this is a no-op.
     """
-    await session.execute(
-        text("SET LOCAL app.current_tenant_id = :tenant_id"),
-        {"tenant_id": str(tenant_id)},
-    )
+    dialect = session.bind.dialect.name if session.bind else ""
+    if dialect == "postgresql":
+        await session.execute(
+            text("SET LOCAL app.current_tenant_id = :tenant_id"),
+            {"tenant_id": str(tenant_id)},
+        )
 
 
 class Base(DeclarativeBase):
@@ -44,6 +46,8 @@ class Base(DeclarativeBase):
 
 
 class TenantScopedMixin:
-    """Mixin for all tenant-scoped models. Adds tenant_id column."""
+    """Mixin for all tenant-scoped models. Adds tenant_id column with FK to tenants."""
 
-    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )

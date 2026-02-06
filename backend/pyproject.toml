@@ -9,7 +9,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30.0",
     "alembic>=1.14.0",
-    "pydantic>=2.10.0",
+    "pydantic[email]>=2.10.0",
     "pydantic-settings>=2.7.0",
     "anthropic>=0.42.0",
     "qdrant-client>=1.12.0",
@@ -20,6 +20,7 @@ dependencies = [
     "python-multipart>=0.0.18",
     "python-jose[cryptography]>=3.3.0",
     "mcp>=1.0.0",
+    "uuid-utils>=0.9.0",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +32,8 @@ dev = [
     "mypy>=1.13.0",
     "httpx>=0.28.0",
     "factory-boy>=3.3.0",
+    "fakeredis>=2.26.0",
+    "aiosqlite>=0.20.0",
 ]
 
 [build-system]
@@ -52,6 +55,12 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+ignore = ["B008"]  # Depends() in FastAPI argument defaults is standard pattern
+
+[tool.ruff.lint.per-file-ignores]
+"src/yourai/core/models.py" = ["TCH003"]  # ORM columns need runtime types
+"src/yourai/core/schemas.py" = ["TCH001", "TCH003", "UP046"]  # Pydantic needs runtime types
+"src/yourai/api/routes/*.py" = ["TCH001", "TCH002", "TCH003"]  # FastAPI needs runtime types for DI
 
 [tool.ruff.lint.isort]
 known-first-party = ["yourai"]
@@ -62,5 +71,9 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "redis.*", "qdrant_client.*", "mcp.*"]
+module = ["celery.*", "redis.*", "qdrant_client.*", "mcp.*", "jose", "jose.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["yourai.api.sse.auth", "yourai.core.auth"]
+disallow_untyped_calls = false

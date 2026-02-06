@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     jwt_audience: str = "yourai-api"
     jwt_issuer: str = ""
     jwks_url: str = ""
+    jwt_secret_key: str = "dev-secret"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 60
+
+    # SSE
+    sse_replay_window_seconds: int = 300  # 5 minute replay buffer
+    sse_heartbeat_interval_seconds: int = 15
 
     # Lex
     lex_base_url: str = "http://localhost:8080"
