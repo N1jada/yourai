@@ -1,0 +1,55 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(.env*)",
+      "Edit(**/.env*)",
+      "Edit(**/secrets/**)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)"
+    ],
+    "allow": [
+      "Read(**)",
+      "Edit(backend/src/**)",
+      "Edit(backend/tests/**)",
+      "Edit(frontend/src/**)",
+      "Edit(frontend/tests/**)",
+      "Edit(infrastructure/**)",
+      "Edit(docs/**)",
+      "Edit(alembic/**)",
+      "Bash(cd backend && uv *)",
+      "Bash(cd frontend && pnpm *)",
+      "Bash(docker compose *)",
+      "Bash(git *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit(backend/src/**/*.py)",
+        "command": "cd backend && uv run ruff format \"$FILE_PATH\" 2>/dev/null; uv run ruff check --fix \"$FILE_PATH\" 2>/dev/null; echo '{}'",
+        "timeout": 15
+      },
+      {
+        "matcher": "Edit(frontend/src/**/*.ts|frontend/src/**/*.tsx)",
+        "command": "cd frontend && pnpm prettier --write \"$FILE_PATH\" 2>/dev/null; echo '{}'",
+        "timeout": 15
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "[ \"$(git branch --show-current)\" != \"main\" ] || { echo '{\"block\": true, \"message\": \"Cannot edit on main branch. Create a work package branch first: git checkout -b wp<N>/<description>\"}' >&2; exit 2; }",
+        "timeout": 5
+      }
+    ]
+  }
+}
