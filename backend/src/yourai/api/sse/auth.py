@@ -66,8 +66,9 @@ async def verify_sse_token(request: Request) -> SSETokenClaims:
 
         if not settings.jwks_url:
             # Development mode — accept HS256 with a symmetric secret
-            algorithms = ["HS256"]
-            key = settings.jwt_issuer or "dev-secret"
+            # Must use the same key as core/auth.py (jwt_secret_key)
+            algorithms = [settings.jwt_algorithm]
+            key = settings.jwt_secret_key
             decode_options = {"verify_aud": False, "verify_iss": False}
 
         payload = jwt.decode(
