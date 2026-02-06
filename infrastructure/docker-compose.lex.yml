@@ -1,0 +1,88 @@
+# Self-hosted Lex stack for YourAI
+#
+# This compose file wraps the Lex stack at infrastructure/lex/.
+# To start: docker compose -f infrastructure/docker-compose.lex.yml up -d
+#
+# Lex provides UK legislation and case law search via MCP and REST.
+# The Lex Qdrant instance runs on ports 6333/6334 (default).
+# The YourAI Qdrant instance runs on ports 6335/6336 (configured in docker-compose.yml).
+#
+# Data ingestion:
+#   cd infrastructure/lex
+#   docker compose exec pipeline python -m lex.pipeline.run --all
+#
+# See infrastructure/lex/README.md for full documentation.
+
+services:
+  lex-qdrant:
+    image: qdrant/qdrant:v1.15.1
+    container_name: lex-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - lex-qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2"
+        reservations:
+          memory: 2G
+          cpus: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  lex-backend:
+    build:
+      context: ./lex
+      dockerfile: ./src/backend/Dockerfile
+    container_name: lex-backend
+    ports:
+      - "8080:8000"
+    environment:
+      - QDRANT_HOST=http://lex-qdrant:6333
+      - QDRANT_GRPC_PORT=6334
+      - ENVIRONMENT=localhost
+    volumes:
+      - ./lex/data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      lex-qdrant:
+        condition: service_healthy
+
+  lex-pipeline:
+    build:
+      context: ./lex
+      dockerfile: ./src/lex/Dockerfile
+    container_name: lex-pipeline
+    environment:
+      - QDRANT_HOST=http://lex-qdrant:6333
+      - QDRANT_GRPC_PORT=6334
+      - ENVIRONMENT=localhost
+    volumes:
+      - ./lex/data:/app/data
+    tty: true
+    stdin_open: true
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    depends_on:
+      lex-qdrant:
+        condition: service_healthy
+
+volumes:
+  lex-qdrant-data:
