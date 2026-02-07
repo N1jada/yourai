@@ -36,6 +36,25 @@
   }
 }
 
+@layer base {
+  /* Reduced motion: disable all animations and transitions */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Skip to content link for keyboard users */
+  .skip-to-content {
+    @apply absolute left-1/2 z-50 -translate-x-1/2 -translate-y-full rounded-b-md bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0;
+  }
+}
+
 @layer components {
   /* Scrollbar styling (webkit browsers) */
   .scrollbar-thin::-webkit-scrollbar {
