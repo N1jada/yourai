@@ -58,7 +58,7 @@ async def login(
     if user is None:
         raise UnauthorisedError("Invalid email or password.")
 
-    if str(user.status) != UserStatus.ACTIVE.value:
+    if user.status != UserStatus.ACTIVE:
         raise UnauthorisedError("User account is not active.")
 
     # Set tenant context for RLS

@@ -60,10 +60,12 @@ def create_app() -> FastAPI:
     from yourai.api.routes.documents import router as documents_router
     from yourai.api.routes.feedback import router as feedback_router
     from yourai.api.routes.guardrails import router as guardrails_router
+    from yourai.api.routes.health import router as health_router
     from yourai.api.routes.knowledge_bases import router as knowledge_bases_router
     from yourai.api.routes.personas import router as personas_router
     from yourai.api.routes.policy_ontology import router as policy_ontology_router
     from yourai.api.routes.policy_reviews import router as policy_reviews_router
+    from yourai.api.routes.profile import router as profile_router
     from yourai.api.routes.roles import router as roles_router
     from yourai.api.routes.search import router as search_router
     from yourai.api.routes.sse import router as sse_router
@@ -87,6 +89,8 @@ def create_app() -> FastAPI:
     app.include_router(templates_router)
     app.include_router(guardrails_router)
     app.include_router(activity_logs_router)
+    app.include_router(profile_router)
+    app.include_router(health_router)
 
     @app.get("/api/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:

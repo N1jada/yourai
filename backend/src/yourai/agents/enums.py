@@ -1,68 +1,25 @@
-"""Enumerations for agent-related models.
+"""Agent enumerations — re-exported from canonical core.enums.
 
-Ported from the database schema enum types defined in DATABASE_SCHEMA.sql.
+All enum definitions live in yourai.core.enums. This module re-exports
+the subset used by the agents package for backwards compatibility.
 """
 
-from __future__ import annotations
+from yourai.core.enums import (
+    AgentInvocationMode,
+    ConfidenceLevel,
+    ConversationState,
+    MessageRole,
+    MessageState,
+    ModelTier,
+    VerificationStatus,
+)
 
-from enum import StrEnum
-
-
-class ConversationState(StrEnum):
-    """State machine for conversations."""
-
-    PENDING = "pending"
-    ACTIVE = "active"
-    COMPLETED = "completed"
-    ARCHIVED = "archived"
-
-
-class MessageRole(StrEnum):
-    """Message sender role in a conversation."""
-
-    USER = "user"
-    ASSISTANT = "assistant"
-    SYSTEM = "system"
-
-
-class MessageState(StrEnum):
-    """Processing state of a message."""
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    SUCCESS = "success"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class ConfidenceLevel(StrEnum):
-    """AI response confidence level."""
-
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
-class VerificationStatus(StrEnum):
-    """Citation verification status."""
-
-    VERIFIED = "verified"
-    UNVERIFIED = "unverified"
-    FAILED = "failed"
-    PENDING = "pending"
-
-
-class AgentInvocationMode(StrEnum):
-    """Mode of agent invocation."""
-
-    CONVERSATION = "conversation"
-    POLICY_REVIEW = "policy_review"
-    ONE_SHOT = "one_shot"
-
-
-class ModelTier(StrEnum):
-    """Claude model tier used for an invocation."""
-
-    HAIKU = "haiku"
-    SONNET = "sonnet"
-    OPUS = "opus"
+__all__ = [
+    "AgentInvocationMode",
+    "ConfidenceLevel",
+    "ConversationState",
+    "MessageRole",
+    "MessageState",
+    "ModelTier",
+    "VerificationStatus",
+]

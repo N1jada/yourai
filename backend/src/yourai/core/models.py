@@ -12,8 +12,12 @@ to JSONB and Uuid maps to the native UUID type.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 from uuid import UUID
 
 import uuid_utils
@@ -21,9 +25,9 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Enum,
     ForeignKey,
     Numeric,
-    String,
     Text,
     UniqueConstraint,
     Uuid,
@@ -31,7 +35,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from yourai.core.database import Base, TenantScopedMixin
-from yourai.core.enums import GuardrailStatus, SubscriptionTier, UserStatus  # noqa: TCH002
+from yourai.core.enums import GuardrailStatus, SubscriptionTier, UserStatus  # noqa: TCH002, F811
 
 
 class Tenant(Base):
@@ -47,7 +51,9 @@ class Tenant(Base):
         JSON, nullable=False, default=dict
     )
     subscription_tier: Mapped[SubscriptionTier] = mapped_column(
-        String, nullable=False, default=SubscriptionTier.STARTER
+        Enum(SubscriptionTier, name="subscription_tier", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=SubscriptionTier.STARTER,
     )
     credit_limit: Mapped[Decimal] = mapped_column(
         Numeric(12, 4), nullable=False, default=Decimal("0")
@@ -65,8 +71,8 @@ class Tenant(Base):
         JSON, nullable=False, default=dict
     )
     vector_namespace: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     users: Mapped[list[User]] = relationship(back_populates="tenant")
@@ -81,8 +87,8 @@ class Permission(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
     name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
 
 class RolePermission(Base):
@@ -130,15 +136,19 @@ class User(TenantScopedMixin, Base):
     given_name: Mapped[str] = mapped_column(Text, nullable=False)
     family_name: Mapped[str] = mapped_column(Text, nullable=False)
     job_role: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[UserStatus] = mapped_column(String, nullable=False, default=UserStatus.PENDING)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus, name="user_status", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=UserStatus.PENDING,
+    )
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     notification_preferences: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         JSON, nullable=False, default=dict
     )
     data_deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     tenant: Mapped[Tenant] = relationship(back_populates="users")
@@ -156,8 +166,8 @@ class Role(TenantScopedMixin, Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     tenant: Mapped[Tenant] = relationship(back_populates="roles")
@@ -176,13 +186,15 @@ class Guardrail(TenantScopedMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[GuardrailStatus] = mapped_column(
-        String, nullable=False, default=GuardrailStatus.CREATING
+        Enum(GuardrailStatus, name="guardrail_status", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=GuardrailStatus.CREATING,
     )
     configuration_rules: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         JSON, nullable=False, default=dict
     )
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
 
 class ActivityLog(TenantScopedMixin, Base):
@@ -194,12 +206,11 @@ class ActivityLog(TenantScopedMixin, Base):
     user_id: Mapped[UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    user_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     action: Mapped[str] = mapped_column(Text, nullable=False)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list] = mapped_column(  # type: ignore[type-arg]
         JSON, nullable=False, default=list
     )
     retention_expiry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)

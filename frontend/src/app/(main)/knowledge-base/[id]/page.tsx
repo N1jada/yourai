@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -45,12 +46,12 @@ export default function KnowledgeBaseDetailPage() {
       {/* Header */}
       <div className="border-b border-neutral-200 bg-white px-6 py-4">
         <div className="flex items-center gap-3">
-          <a
+          <Link
             href="/knowledge-base"
             className="rounded p-1 text-neutral-400 hover:text-neutral-600"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div>
             <h1 className="text-xl font-semibold text-neutral-900">
               {kb?.name || "Knowledge Base"}

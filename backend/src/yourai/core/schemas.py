@@ -260,7 +260,6 @@ class ActivityLogResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     user_id: UUID | None
-    user_name: str | None
     action: str
     detail: str | None
     tags: list[str]

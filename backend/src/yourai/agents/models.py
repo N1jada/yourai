@@ -9,14 +9,19 @@ Uses dialect-agnostic types (JSON, DateTime, Uuid) for SQLite test compatibility
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 import uuid_utils
 from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Enum,
     ForeignKey,
     Integer,
     LargeBinary,
@@ -27,16 +32,17 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from yourai.agents.enums import (
+from yourai.core.database import Base, TenantScopedMixin
+from yourai.core.enums import (
     AgentInvocationMode,
     ConfidenceLevel,
     ConversationState,
+    FeedbackRating,
+    FeedbackReviewStatus,
     MessageRole,
     MessageState,
     ModelTier,
 )
-from yourai.core.database import Base, TenantScopedMixin
-from yourai.core.enums import FeedbackRating, FeedbackReviewStatus  # noqa: TCH002
 
 
 class Persona(TenantScopedMixin, Base):
@@ -52,8 +58,8 @@ class Persona(TenantScopedMixin, Base):
         JSON, nullable=False, default=list
     )
     usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
 
 class Conversation(TenantScopedMixin, Base):
@@ -67,14 +73,16 @@ class Conversation(TenantScopedMixin, Base):
     )
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[ConversationState] = mapped_column(
-        String, nullable=False, default=ConversationState.PENDING
+        Enum(ConversationState, name="conversation_state", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=ConversationState.PENDING,
     )
     # NOTE: conversation_templates table not yet implemented (WP5 Session 2+)
     # For now, we store the ID but don't enforce FK constraint
     template_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     messages: Mapped[list[Message]] = relationship(
@@ -95,10 +103,15 @@ class Message(TenantScopedMixin, Base):
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
     request_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
-    role: Mapped[MessageRole] = mapped_column(String, nullable=False)
+    role: Mapped[MessageRole] = mapped_column(
+        Enum(MessageRole, name="message_role", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     state: Mapped[MessageState] = mapped_column(
-        String, nullable=False, default=MessageState.PENDING
+        Enum(MessageState, name="message_state", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=MessageState.PENDING,
     )
     metadata_: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         "metadata", JSON, nullable=False, default=dict
@@ -106,12 +119,15 @@ class Message(TenantScopedMixin, Base):
     file_attachments: Mapped[list] = mapped_column(  # type: ignore[type-arg]
         JSON, nullable=False, default=list
     )
-    confidence_level: Mapped[ConfidenceLevel | None] = mapped_column(String, nullable=True)
+    confidence_level: Mapped[ConfidenceLevel | None] = mapped_column(
+        Enum(ConfidenceLevel, name="confidence_level", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=True,
+    )
     verification_result: Mapped[dict | None] = mapped_column(  # type: ignore[type-arg]
         JSON, nullable=True
     )
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
@@ -130,7 +146,10 @@ class AgentInvocation(TenantScopedMixin, Base):
     user_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    mode: Mapped[AgentInvocationMode] = mapped_column(String, nullable=False)
+    mode: Mapped[AgentInvocationMode] = mapped_column(
+        Enum(AgentInvocationMode, name="agent_invocation_mode", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    )
     query: Mapped[str | None] = mapped_column(Text, nullable=True)
     persona_id: Mapped[UUID | None] = mapped_column(
         Uuid, ForeignKey("personas.id", ondelete="SET NULL"), nullable=True
@@ -141,10 +160,13 @@ class AgentInvocation(TenantScopedMixin, Base):
         JSON, nullable=False, default=list
     )
     model_used: Mapped[str | None] = mapped_column(Text, nullable=True)
-    model_tier: Mapped[ModelTier | None] = mapped_column(String, nullable=True)
+    model_tier: Mapped[ModelTier | None] = mapped_column(
+        Enum(ModelTier, name="model_tier", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=True,
+    )
     cache_hit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     conversation: Mapped[Conversation | None] = relationship(back_populates="invocations")
@@ -170,8 +192,8 @@ class AgentInvocationEvent(Base):
         JSON, nullable=False, default=dict
     )
     sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     invocation: Mapped[AgentInvocation] = relationship(back_populates="events")
@@ -190,12 +212,17 @@ class Feedback(TenantScopedMixin, Base):
     user_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    rating: Mapped[FeedbackRating] = mapped_column(String, nullable=False)
+    rating: Mapped[FeedbackRating] = mapped_column(
+        Enum(FeedbackRating, name="feedback_rating", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    )
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_status: Mapped[FeedbackReviewStatus] = mapped_column(
-        String, nullable=False, default=FeedbackReviewStatus.PENDING
+        Enum(FeedbackReviewStatus, name="feedback_review_status", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=FeedbackReviewStatus.PENDING,
     )
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
 
 class SemanticCacheEntry(TenantScopedMixin, Base):
@@ -212,5 +239,5 @@ class SemanticCacheEntry(TenantScopedMixin, Base):
     )
     ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=3600)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)

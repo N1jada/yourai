@@ -8,8 +8,12 @@ Uses dialect-agnostic types (JSON, DateTime, Uuid) for SQLite test compatibility
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 import uuid_utils
 from sqlalchemy import (
@@ -17,9 +21,9 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Enum,
     ForeignKey,
     Integer,
-    String,
     Text,
     Uuid,
 )
@@ -40,10 +44,16 @@ class KnowledgeBase(TenantScopedMixin, Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    category: Mapped[KnowledgeBaseCategory] = mapped_column(String, nullable=False)
-    source_type: Mapped[KnowledgeBaseSourceType] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    category: Mapped[KnowledgeBaseCategory] = mapped_column(
+        Enum(KnowledgeBaseCategory, name="knowledge_base_category", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    )
+    source_type: Mapped[KnowledgeBaseSourceType] = mapped_column(
+        Enum(KnowledgeBaseSourceType, name="knowledge_base_source_type", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+    )
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     documents: Mapped[list[Document]] = relationship(
@@ -67,7 +77,9 @@ class Document(TenantScopedMixin, Base):
     byte_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     processing_state: Mapped[DocumentProcessingState] = mapped_column(
-        String, nullable=False, default=DocumentProcessingState.UPLOADED
+        Enum(DocumentProcessingState, name="document_processing_state", create_type=False, values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=DocumentProcessingState.UPLOADED,
     )
     text_extraction_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -82,8 +94,8 @@ class Document(TenantScopedMixin, Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     dead_letter: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     knowledge_base: Mapped[KnowledgeBase] = relationship(back_populates="documents")
@@ -118,8 +130,8 @@ class DocumentChunk(TenantScopedMixin, Base):
     contextual_prefix: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_version: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     document: Mapped[Document] = relationship(back_populates="chunks")
@@ -138,8 +150,8 @@ class DocumentAnnotation(TenantScopedMixin, Base):
     annotation_type: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     contributor: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=_utcnow)
 
     # Relationships
     document: Mapped[Document] = relationship(back_populates="annotations")

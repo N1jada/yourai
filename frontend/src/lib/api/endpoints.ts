@@ -210,7 +210,7 @@ export class KnowledgeBaseApi {
   }
 
   async search(data: SearchRequest): Promise<SearchResult[]> {
-    return this.client.post("/api/v1/knowledge-bases/search", data);
+    return this.client.post("/api/v1/search", data);
   }
 }
 
@@ -241,16 +241,16 @@ export class DocumentsApi {
     );
   }
 
-  async get(kbId: string, documentId: string): Promise<DocumentResponse> {
-    return this.client.get(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`);
+  async get(_kbId: string, documentId: string): Promise<DocumentResponse> {
+    return this.client.get(`/api/v1/documents/${documentId}`);
   }
 
-  async delete(kbId: string, documentId: string): Promise<void> {
-    return this.client.delete(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`);
+  async delete(_kbId: string, documentId: string): Promise<void> {
+    return this.client.delete(`/api/v1/documents/${documentId}`);
   }
 
-  async getVersions(kbId: string, documentId: string): Promise<DocumentVersion[]> {
-    return this.client.get(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}/versions`);
+  async getVersions(_kbId: string, documentId: string): Promise<DocumentVersion[]> {
+    return this.client.get(`/api/v1/documents/${documentId}/versions`);
   }
 }
 
@@ -287,7 +287,7 @@ export class UsersApi {
   }
 
   async assignRoles(id: string, data: AssignRoles): Promise<UserResponse> {
-    return this.client.post(`/api/v1/users/${id}/roles`, data);
+    return this.client.put(`/api/v1/users/${id}/roles`, data);
   }
 
   async bulkInvite(data: BulkInviteRequest): Promise<BulkInviteResult> {
@@ -415,7 +415,7 @@ export class TenantApi {
   }
 
   async getBranding(slug: string): Promise<TenantConfig> {
-    return this.client.get(`/api/v1/tenants/branding/${slug}`);
+    return this.client.get(`/api/v1/tenants/by-slug/${slug}/branding`);
   }
 }
 

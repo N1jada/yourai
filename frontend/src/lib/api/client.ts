@@ -40,9 +40,9 @@ export class ApiClient {
     const url = `${this.baseUrl}${path}`;
     const token = this.getToken();
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     // Add auth header if token exists
@@ -129,6 +129,16 @@ export class ApiClient {
   async patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, {
       method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  /**
+   * PUT request
+   */
+  async put<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: "PUT",
       body: body ? JSON.stringify(body) : undefined,
     });
   }

@@ -75,13 +75,12 @@ class ActivityLogService:
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["id", "user_id", "user_name", "action", "detail", "tags", "created_at"])
+        writer.writerow(["id", "user_id", "action", "detail", "tags", "created_at"])
         for log in logs:
             writer.writerow(
                 [
                     str(log.id),
                     str(log.user_id) if log.user_id else "",
-                    log.user_name or "",
                     log.action,
                     log.detail or "",
                     ",".join(log.tags) if log.tags else "",
@@ -97,7 +96,6 @@ class ActivityLogService:
             id=UUID(str(log.id)),
             tenant_id=UUID(str(log.tenant_id)),
             user_id=UUID(str(log.user_id)) if log.user_id else None,
-            user_name=log.user_name,
             action=log.action,
             detail=log.detail,
             tags=log.tags,

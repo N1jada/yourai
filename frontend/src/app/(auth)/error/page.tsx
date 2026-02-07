@@ -4,6 +4,7 @@
  * Auth Error Page — Displays authentication failure messages.
  */
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -16,7 +17,7 @@ const errorMessages: Record<string, string> = {
   invalid_token: "Your authentication token is invalid. Please sign in again.",
 };
 
-export default function AuthErrorPage() {
+function ErrorContent() {
   const searchParams = useSearchParams();
   const errorCode = searchParams.get("code") ?? "unknown";
   const message =
@@ -41,5 +42,21 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-brand-600" />
+          </div>
+        </div>
+      }
+    >
+      <ErrorContent />
+    </Suspense>
   );
 }
