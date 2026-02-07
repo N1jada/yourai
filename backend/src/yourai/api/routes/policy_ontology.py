@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from yourai.core.config import settings
-from yourai.core.database import get_session
+from yourai.core.database import get_db_session
 from yourai.core.middleware import get_current_tenant, get_current_user
 from yourai.core.models import Tenant, User
 from yourai.policy.ontology import OntologyService
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/api/v1/policy", tags=["policy"])
 @router.get("/groups", response_model=list[PolicyDefinitionGroupResponse])
 async def list_policy_groups(
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> list[PolicyDefinitionGroupResponse]:
     """List all policy definition groups for the tenant."""
     service = OntologyService(session)
@@ -55,7 +55,7 @@ async def list_policy_groups(
 async def create_policy_group(
     data: CreatePolicyDefinitionGroup,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionGroupResponse:
     """Create a new policy definition group."""
     service = OntologyService(session)
@@ -68,7 +68,7 @@ async def create_policy_group(
 async def get_policy_group(
     group_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionGroupResponse:
     """Get a policy definition group by ID."""
     service = OntologyService(session)
@@ -80,7 +80,7 @@ async def update_policy_group(
     group_id: UUID,
     data: UpdatePolicyDefinitionGroup,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionGroupResponse:
     """Update a policy definition group."""
     service = OntologyService(session)
@@ -93,7 +93,7 @@ async def update_policy_group(
 async def delete_policy_group(
     group_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> None:
     """Delete a policy definition group."""
     service = OntologyService(session)
@@ -108,7 +108,7 @@ async def delete_policy_group(
 @router.get("/topics", response_model=list[PolicyDefinitionTopicResponse])
 async def list_policy_topics(
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> list[PolicyDefinitionTopicResponse]:
     """List all policy definition topics for the tenant."""
     service = OntologyService(session)
@@ -123,7 +123,7 @@ async def list_policy_topics(
 async def create_policy_topic(
     data: CreatePolicyDefinitionTopic,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionTopicResponse:
     """Create a new policy definition topic."""
     service = OntologyService(session)
@@ -136,7 +136,7 @@ async def create_policy_topic(
 async def get_policy_topic(
     topic_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionTopicResponse:
     """Get a policy definition topic by ID."""
     service = OntologyService(session)
@@ -148,7 +148,7 @@ async def update_policy_topic(
     topic_id: UUID,
     data: UpdatePolicyDefinitionTopic,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionTopicResponse:
     """Update a policy definition topic."""
     service = OntologyService(session)
@@ -161,7 +161,7 @@ async def update_policy_topic(
 async def delete_policy_topic(
     topic_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> None:
     """Delete a policy definition topic."""
     service = OntologyService(session)
@@ -176,7 +176,7 @@ async def delete_policy_topic(
 @router.get("/definitions", response_model=list[PolicyDefinitionResponse])
 async def list_policy_definitions(
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
     group_id: UUID | None = None,
     status_filter: str | None = None,
 ) -> list[PolicyDefinitionResponse]:
@@ -198,7 +198,7 @@ async def list_policy_definitions(
 async def create_policy_definition(
     data: CreatePolicyDefinition,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionResponse:
     """Create a new policy definition."""
     service = OntologyService(session)
@@ -211,7 +211,7 @@ async def create_policy_definition(
 async def get_policy_definition(
     definition_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionResponse:
     """Get a policy definition by ID."""
     service = OntologyService(session)
@@ -226,7 +226,7 @@ async def update_policy_definition(
     definition_id: UUID,
     data: UpdatePolicyDefinition,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyDefinitionResponse:
     """Update a policy definition."""
     service = OntologyService(session)
@@ -239,7 +239,7 @@ async def update_policy_definition(
 async def delete_policy_definition(
     definition_id: UUID,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> None:
     """Delete a policy definition."""
     service = OntologyService(session)
@@ -255,7 +255,7 @@ async def delete_policy_definition(
 async def seed_policy_definitions(
     data: BulkSeedRequest,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> list[PolicyDefinitionResponse]:
     """Bulk seed policy definitions for tenant setup.
 
@@ -276,7 +276,7 @@ async def identify_policy_type(
     data: PolicyTypeIdentificationRequest,
     current_tenant: Annotated[Tenant, Depends(get_current_tenant)],
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PolicyTypeIdentificationResult:
     """Identify policy type from document text.
 
