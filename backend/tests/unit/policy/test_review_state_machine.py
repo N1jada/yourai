@@ -16,18 +16,18 @@ from yourai.policy.review_engine import PolicyReviewEngine
 
 @pytest.mark.asyncio
 @patch("yourai.policy.evaluator.SearchService")
-mock_search_service_class: Mock,
-    test_session: AsyncSession,review_state_pending_to_processing(
-    # Mock SearchService to avoid voyageai dependency
-    mock_search_instance = AsyncMock()
-    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
-    mock_search_service_class.return_value = mock_search_instance
-
+async def test_review_state_pending_to_processing(
+    mock_search_service_class: Mock,
     test_session: AsyncSession,
     sample_tenant: Tenant,
     sample_user: User,
 ) -> None:
     """Review starts in PENDING state and transitions to PROCESSING."""
+    # Mock SearchService to avoid voyageai dependency
+    mock_search_instance = AsyncMock()
+    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
+    mock_search_service_class.return_value = mock_search_instance
+
     # Create a simple policy definition
     definition = PolicyDefinition(
         id=uuid_utils.uuid7(),
@@ -90,18 +90,18 @@ mock_search_service_class: Mock,
 
 @pytest.mark.asyncio
 @patch("yourai.policy.evaluator.SearchService")
-mock_search_service_class: Mock,
-    test_session: AsyncSession,review_state_error_on_invalid_policy_type(
-    # Mock SearchService to avoid voyageai dependency
-    mock_search_instance = AsyncMock()
-    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
-    mock_search_service_class.return_value = mock_search_instance
-
+async def test_review_state_error_on_invalid_policy_type(
+    mock_search_service_class: Mock,
     test_session: AsyncSession,
     sample_tenant: Tenant,
     sample_user: User,
 ) -> None:
     """Review transitions to ERROR when policy type cannot be identified."""
+    # Mock SearchService to avoid voyageai dependency
+    mock_search_instance = AsyncMock()
+    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
+    mock_search_service_class.return_value = mock_search_instance
+
     # Mock dependencies
     mock_redis = AsyncMock()
     mock_pipeline = AsyncMock()
@@ -143,18 +143,18 @@ mock_search_service_class: Mock,
 
 @pytest.mark.asyncio
 @patch("yourai.policy.evaluator.SearchService")
-mock_search_service_class: Mock,
-    test_session: AsyncSession,review_cancellation(
-    # Mock SearchService to avoid voyageai dependency
-    mock_search_instance = AsyncMock()
-    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
-    mock_search_service_class.return_value = mock_search_instance
-
+async def test_review_cancellation(
+    mock_search_service_class: Mock,
     test_session: AsyncSession,
     sample_tenant: Tenant,
     sample_user: User,
 ) -> None:
     """Review can be cancelled while in PENDING or PROCESSING state."""
+    # Mock SearchService to avoid voyageai dependency
+    mock_search_instance = AsyncMock()
+    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
+    mock_search_service_class.return_value = mock_search_instance
+
     # Create review in PENDING state
     review = PolicyReview(
         id=uuid_utils.uuid7(),
@@ -184,18 +184,18 @@ mock_search_service_class: Mock,
 
 @pytest.mark.asyncio
 @patch("yourai.policy.evaluator.SearchService")
-mock_search_service_class: Mock,
-    test_session: AsyncSession,review_cannot_cancel_completed(
-    # Mock SearchService to avoid voyageai dependency
-    mock_search_instance = AsyncMock()
-    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
-    mock_search_service_class.return_value = mock_search_instance
-
+async def test_review_cannot_cancel_completed(
+    mock_search_service_class: Mock,
     test_session: AsyncSession,
     sample_tenant: Tenant,
     sample_user: User,
 ) -> None:
     """Completed reviews cannot be cancelled."""
+    # Mock SearchService to avoid voyageai dependency
+    mock_search_instance = AsyncMock()
+    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
+    mock_search_service_class.return_value = mock_search_instance
+
     # Create review in COMPLETE state
     review = PolicyReview(
         id=uuid_utils.uuid7(),
@@ -226,19 +226,19 @@ mock_search_service_class: Mock,
 
 @pytest.mark.asyncio
 @patch("yourai.policy.evaluator.SearchService")
-mock_search_service_class: Mock,
-    test_session: AsyncSession,token_usage_logged(
-    # Mock SearchService to avoid voyageai dependency
-    mock_search_instance = AsyncMock()
-    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
-    mock_search_service_class.return_value = mock_search_instance
-
+async def test_token_usage_logged(
+    mock_search_service_class: Mock,
     test_session: AsyncSession,
     sample_tenant: Tenant,
     sample_user: User,
     caplog,  # type: ignore[no-untyped-def]
 ) -> None:
     """Token usage is tracked with feature_id."""
+    # Mock SearchService to avoid voyageai dependency
+    mock_search_instance = AsyncMock()
+    mock_search_instance.hybrid_search = AsyncMock(return_value=[])
+    mock_search_service_class.return_value = mock_search_instance
+
     # Create a simple policy definition
     definition = PolicyDefinition(
         id=uuid_utils.uuid7(),
