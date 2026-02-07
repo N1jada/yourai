@@ -74,8 +74,10 @@ class OrchestratorAgent:
         # Step 1: Invoke knowledge workers in parallel (Session 2)
         knowledge_context = await self._invoke_knowledge_workers(query, tenant_id, router_decision)
 
-        # Step 2: Assemble system prompt with knowledge context
-        system_prompt = self._assemble_system_prompt(persona, knowledge_context)
+        # Step 2: Assemble system prompt with knowledge context and skills
+        system_prompt = self._assemble_system_prompt(
+            persona, knowledge_context, router_decision, tenant_id
+        )
         messages = self._build_messages(conversation_history, query)
         model = ModelRouter.get_model_for_orchestration()
 
@@ -206,13 +208,19 @@ class OrchestratorAgent:
             await worker.disconnect()
 
     def _assemble_system_prompt(
-        self, persona: Persona | None, knowledge_context: KnowledgeContext | None = None
+        self,
+        persona: Persona | None,
+        knowledge_context: KnowledgeContext | None = None,
+        router_decision: RouterDecision | None = None,
+        tenant_id: UUID | None = None,
     ) -> str:
-        """Assembles system prompt from base + persona + knowledge context.
+        """Assembles system prompt from base + persona + skills + knowledge context.
 
         Args:
             persona: Optional persona with custom system_instructions
             knowledge_context: Retrieved knowledge sources from workers
+            router_decision: Router classification (for skills activation)
+            tenant_id: Tenant UUID (for tenant-specific skills)
 
         Returns:
             Complete system prompt string with instructions to cite sources
@@ -221,6 +229,17 @@ class OrchestratorAgent:
 
         if persona and persona.system_instructions:
             prompt += f"\n\n# Persona Instructions\n\n{persona.system_instructions}"
+
+        # Add skills guidance based on activated sources (Session 4)
+        if router_decision and router_decision.sources:
+            from yourai.agents.skills import get_skill_registry
+
+            skill_registry = get_skill_registry()
+            skills_prompt = skill_registry.assemble_skills_prompt(
+                router_decision.sources, tenant_id
+            )
+            if skills_prompt:
+                prompt += skills_prompt
 
         # Add knowledge context if sources were found (Session 2)
         if knowledge_context and knowledge_context.has_sources:

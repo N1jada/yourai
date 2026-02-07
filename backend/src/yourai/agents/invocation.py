@@ -29,6 +29,7 @@ from yourai.agents.messages import MessageService
 from yourai.agents.models import AgentInvocation, Conversation, Message, Persona
 from yourai.agents.orchestrator import OrchestratorAgent
 from yourai.agents.router import RouterAgent
+from yourai.agents.semantic_cache import SemanticCacheService
 from yourai.agents.streaming import emit_agent_event
 from yourai.agents.title_generation import TitleGenerationAgent
 from yourai.agents.verification import CitationVerificationAgent
@@ -55,12 +56,25 @@ class AgentEngine:
         session: AsyncSession,
         redis: Redis,
         anthropic_client: AsyncAnthropic,
+        enable_semantic_cache: bool = True,
     ) -> None:
         self._session = session
         self._redis = redis
         self._client = anthropic_client
         self._router = RouterAgent(anthropic_client)
         self._orchestrator = OrchestratorAgent(anthropic_client, session)
+        # Semantic cache for response caching (uses embedder internally)
+        # Can be disabled in tests to avoid voyageai dependency
+        self._semantic_cache: SemanticCacheService | None = None
+        if enable_semantic_cache:
+            try:
+                self._semantic_cache = SemanticCacheService(session)
+            except Exception as exc:
+                logger.warning(
+                    "semantic_cache_init_failed",
+                    error=str(exc),
+                    msg="Semantic cache disabled - embedder not available",
+                )
 
     async def invoke(
         self,
@@ -234,7 +248,29 @@ class AgentEngine:
                 AgentCompleteEvent(agent_name="verification", duration_ms=verification_duration),
             )
 
-            # 12b. Confidence scoring (Session 4)
+            # 12b. Quality assurance review (Session 4, testing mode)
+            from yourai.agents.qa_agent import QualityAssuranceAgent
+
+            qa_agent = QualityAssuranceAgent()
+            qa_result = await qa_agent.review_response(
+                response=assistant_content,
+                confidence_level=None,  # type: ignore[arg-type]  # Scored next
+                verification_result=verification_result.model_dump(),
+                tenant_id=tenant_id,
+            )
+
+            # In testing mode, QA always approves but logs findings
+            logger.info(
+                "qa_review_complete",
+                tenant_id=str(tenant_id),
+                conversation_id=str(conversation_id),
+                approved=qa_result.approved,
+                issues_count=len(qa_result.issues),
+                completeness_score=qa_result.completeness_score,
+                clarity_score=qa_result.clarity_score,
+            )
+
+            # 12c. Confidence scoring (Session 4)
             # Infer whether sources were used based on router decision
             has_sources = (
                 len(router_decision.sources) > 0 if router_decision else False
@@ -268,7 +304,17 @@ class AgentEngine:
             invocation.model_used = ModelRouter.get_model_for_orchestration()
 
             # 14. Title generation for first message (Session 4)
-            if len(history) == 0:  # First message in conversation
+            # Check if conversation needs a title (first exchange)
+            # Load fresh conversation object to check title
+            conv_result = await self._session.execute(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.tenant_id == tenant_id,
+                )
+            )
+            current_conversation = conv_result.scalar_one()
+
+            if not current_conversation.title and len(history) <= 1:
                 await emit_agent_event(
                     self._redis,
                     channel,
@@ -281,14 +327,8 @@ class AgentEngine:
                 )
 
                 # Update conversation title
-                conv_result = await self._session.execute(
-                    select(Conversation).where(
-                        Conversation.id == conversation_id,
-                        Conversation.tenant_id == tenant_id,
-                    )
-                )
-                conversation = conv_result.scalar_one()
-                conversation.title = generated_title
+                current_conversation.title = generated_title
+                await self._session.flush()
 
                 await emit_agent_event(
                     self._redis,
@@ -299,6 +339,25 @@ class AgentEngine:
                 )
 
             await self._session.commit()
+
+            # 15. Store in semantic cache (Session 4, best-effort)
+            # Only cache responses with HIGH confidence
+            if self._semantic_cache and confidence_level.value == "high":  # type: ignore[attr-defined]
+                try:
+                    await self._semantic_cache.store_in_cache(
+                        query=message,
+                        response=assistant_content,
+                        sources=[],  # TODO: extract from router_decision or knowledge workers
+                        tenant_id=tenant_id,
+                        ttl_seconds=2592000,  # 30 days
+                    )
+                except Exception as cache_exc:
+                    # Log but don't fail the request
+                    logger.warning(
+                        "semantic_cache_store_failed",
+                        tenant_id=str(tenant_id),
+                        error=str(cache_exc),
+                    )
 
             logger.info(
                 "agent_invocation_complete",
