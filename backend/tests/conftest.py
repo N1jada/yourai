@@ -11,6 +11,13 @@ import uuid_utils
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from yourai.agents.models import (  # noqa: F401 — Import to register with SQLAlchemy
+    AgentInvocation,
+    AgentInvocationEvent,
+    Conversation,
+    Message,
+    Persona,
+)
 from yourai.core.auth import AuthService
 from yourai.core.database import Base, get_db_session
 from yourai.core.enums import (

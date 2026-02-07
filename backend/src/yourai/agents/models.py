@@ -1,0 +1,174 @@
+"""SQLAlchemy 2.0 models for WP5 agent tables.
+
+Models match the canonical schema in docs/architecture/DATABASE_SCHEMA.sql.
+All tables are tenant-scoped with TenantScopedMixin except agent_invocation_events
+(which inherits tenant isolation through its parent FK).
+
+Uses dialect-agnostic types (JSON, DateTime, Uuid) for SQLite test compatibility.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+import uuid_utils
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from yourai.agents.enums import (
+    AgentInvocationMode,
+    ConfidenceLevel,
+    ConversationState,
+    MessageRole,
+    MessageState,
+    ModelTier,
+)
+from yourai.core.database import Base, TenantScopedMixin
+
+
+class Persona(TenantScopedMixin, Base):
+    """Tenant-scoped persona (system prompt template)."""
+
+    __tablename__ = "personas"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    system_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    activated_skills: Mapped[list] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=False, default=list
+    )
+    usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Conversation(TenantScopedMixin, Base):
+    """Tenant-scoped conversation owned by a user."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[ConversationState] = mapped_column(
+        String, nullable=False, default=ConversationState.PENDING
+    )
+    # NOTE: conversation_templates table not yet implemented (WP5 Session 2+)
+    # For now, we store the ID but don't enforce FK constraint
+    template_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    messages: Mapped[list[Message]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at"
+    )
+    invocations: Mapped[list[AgentInvocation]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class Message(TenantScopedMixin, Base):
+    """A message in a conversation (user or assistant)."""
+
+    __tablename__ = "messages"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    conversation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    request_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    role: Mapped[MessageRole] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    state: Mapped[MessageState] = mapped_column(
+        String, nullable=False, default=MessageState.PENDING
+    )
+    metadata_: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
+        "metadata", JSON, nullable=False, default=dict
+    )
+    file_attachments: Mapped[list] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=False, default=list
+    )
+    confidence_level: Mapped[ConfidenceLevel | None] = mapped_column(String, nullable=True)
+    verification_result: Mapped[dict | None] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=True
+    )
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class AgentInvocation(TenantScopedMixin, Base):
+    """A single agent invocation (tracks one user query through the agent pipeline)."""
+
+    __tablename__ = "agent_invocations"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    conversation_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True
+    )
+    request_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    mode: Mapped[AgentInvocationMode] = mapped_column(String, nullable=False)
+    query: Mapped[str | None] = mapped_column(Text, nullable=True)
+    persona_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("personas.id", ondelete="SET NULL"), nullable=True
+    )
+    context_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    state: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    attachments: Mapped[list] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=False, default=list
+    )
+    model_used: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_tier: Mapped[ModelTier | None] = mapped_column(String, nullable=True)
+    cache_hit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    conversation: Mapped[Conversation | None] = relationship(back_populates="invocations")
+    events: Mapped[list[AgentInvocationEvent]] = relationship(
+        back_populates="invocation", cascade="all, delete-orphan"
+    )
+
+
+class AgentInvocationEvent(Base):
+    """Event log for a single agent invocation (no TenantScopedMixin, inherits via FK)."""
+
+    __tablename__ = "agent_invocation_events"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_invocation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("agent_invocations.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=False, default=dict
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    invocation: Mapped[AgentInvocation] = relationship(back_populates="events")

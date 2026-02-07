@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
 
     # -- Routes --
     from yourai.api.routes.auth import router as auth_router
+    from yourai.api.routes.conversations import router as conversations_router
     from yourai.api.routes.documents import router as documents_router
     from yourai.api.routes.knowledge_bases import router as knowledge_bases_router
     from yourai.api.routes.roles import router as roles_router
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(tenants_router)
     app.include_router(users_router)
     app.include_router(roles_router)
+    app.include_router(conversations_router)
     app.include_router(sse_router)
     app.include_router(knowledge_bases_router)
     app.include_router(documents_router)
