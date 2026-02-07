@@ -135,11 +135,12 @@ async def test_full_agent_flow_housing_question(
         ]
         mock_lex_instance.call_tool.return_value = mock_verify_result
 
-        # Create AgentEngine and invoke
+        # Create AgentEngine and invoke (disable semantic cache in tests)
         engine = AgentEngine(
             session=test_session,
             redis=mock_redis,
             anthropic_client=mock_anthropic_client,
+            enable_semantic_cache=False,
         )
 
         # Invoke the agent
@@ -153,12 +154,18 @@ async def test_full_agent_flow_housing_question(
         )
 
     # Verify database state
-    await test_session.refresh(conversation)
+    # Query conversation afresh to get latest state
+    from sqlalchemy import select
+
+    conv_result = await test_session.execute(
+        select(Conversation).where(Conversation.id == conversation.id)
+    )
+    refreshed_conversation = conv_result.scalar_one()
 
     # 1. Conversation title should be generated (first message)
-    assert conversation.title is not None
-    assert len(conversation.title) <= 70
-    assert "Housing Act" in conversation.title or "Landlord" in conversation.title
+    assert refreshed_conversation.title is not None
+    assert len(refreshed_conversation.title) <= 70
+    assert "Housing Act" in refreshed_conversation.title or "Landlord" in refreshed_conversation.title
 
     # 2. Messages should be created
     from sqlalchemy import select
@@ -203,11 +210,11 @@ async def test_full_agent_flow_housing_question(
     # With verified citations, should be HIGH or MEDIUM
     assert assistant_msg.confidence_level in [ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM]
 
-    # 6. Verify SSE events were emitted (via mock_redis.publish calls)
-    assert mock_redis.publish.call_count > 0
+    # 6. Verify SSE events were emitted (via mock_pipeline.publish calls)
+    assert mock_pipeline.publish.call_count > 0
 
     # Check that key events were published
-    published_events = [str(call.args) for call in mock_redis.publish.call_list]
+    published_events = [str(call.args) for call in mock_pipeline.publish.call_list]
     event_types = set()
     for event_str in published_events:
         if "agent_start" in event_str:
@@ -341,6 +348,7 @@ async def test_full_agent_flow_with_fake_citation(
             session=test_session,
             redis=mock_redis,
             anthropic_client=mock_anthropic_client,
+            enable_semantic_cache=False,
         )
 
         await engine.invoke(

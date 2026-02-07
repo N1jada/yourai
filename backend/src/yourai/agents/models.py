@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     Uuid,
@@ -172,3 +173,21 @@ class AgentInvocationEvent(Base):
 
     # Relationships
     invocation: Mapped[AgentInvocation] = relationship(back_populates="events")
+
+
+class SemanticCacheEntry(TenantScopedMixin, Base):
+    """Semantic cache for query responses (embedding-based similarity matching)."""
+
+    __tablename__ = "semantic_cache_entries"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    query_embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
+        JSON, nullable=False, default=list
+    )
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=3600)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
