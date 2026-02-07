@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import asyncio
 from typing import TYPE_CHECKING
 
 import structlog
@@ -21,8 +22,8 @@ from yourai.policy.enums import PolicyReviewState, RAGRating
 from yourai.policy.evaluator import ComplianceEvaluator
 from yourai.policy.models import PolicyDefinition, PolicyReview
 from yourai.policy.schemas import (
-    ComplianceCriterion,
     Action,
+    ComplianceCriterion,
     CriterionResult,
     GapItem,
     PolicyReviewResult,
@@ -274,11 +275,66 @@ class PolicyReviewEngine:
                 gap_count=len(gap_analysis),
             )
 
-        except Exception as e:
-            log.error("policy_review_failed", error=str(e))
+        except TimeoutError:
+            log.error("policy_review_timeout", review_id=str(review_id))
             review = await self._get_review(review_id, tenant_id)
             review.state = PolicyReviewState.ERROR
+            review.result = {
+                "error": "POLICY_REVIEW_TIMEOUT",
+                "message": "Review exceeded maximum processing time",
+            }
             await self._session.commit()
+
+            # Emit error event
+            await self._publisher.publish(
+                channel,
+                AgentCompleteEvent(
+                    agent_name="policy_review",
+                    duration_ms=0,
+                    error="Review timed out",
+                ),
+            )
+            raise
+
+        except ValueError as e:
+            # Handle validation errors (e.g., could not identify policy type)
+            log.error("policy_review_validation_error", review_id=str(review_id), error=str(e))
+            review = await self._get_review(review_id, tenant_id)
+            review.state = PolicyReviewState.ERROR
+            review.result = {
+                "error": "VALIDATION_ERROR",
+                "message": str(e),
+            }
+            await self._session.commit()
+
+            await self._publisher.publish(
+                channel,
+                AgentCompleteEvent(
+                    agent_name="policy_review",
+                    duration_ms=0,
+                    error=str(e),
+                ),
+            )
+            raise
+
+        except Exception as e:
+            log.error("policy_review_failed", review_id=str(review_id), error=str(e))
+            review = await self._get_review(review_id, tenant_id)
+            review.state = PolicyReviewState.ERROR
+            review.result = {
+                "error": "INTERNAL_ERROR",
+                "message": f"Unexpected error: {str(e)}",
+            }
+            await self._session.commit()
+
+            await self._publisher.publish(
+                channel,
+                AgentCompleteEvent(
+                    agent_name="policy_review",
+                    duration_ms=0,
+                    error=str(e),
+                ),
+            )
             raise
 
     async def _get_review(self, review_id: UUID, tenant_id: UUID) -> PolicyReview:
@@ -439,7 +495,16 @@ Summarise the key findings, main strengths, and critical areas for improvement."
             model=model,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
+            metadata={"feature_id": "policy-review", "task": "summary_generation"},
         )
+
+        # Log token usage
+        if hasattr(response, "usage"):
+            logger.info(
+                "summary_generation_tokens",
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+            )
 
         if not response.content:
             return "Summary generation failed"

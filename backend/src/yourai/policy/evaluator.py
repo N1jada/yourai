@@ -139,14 +139,26 @@ Policy document text (relevant sections):
 
 Evaluate the policy against this criterion and return the JSON response."""
 
-        # Step 4: Call Sonnet for evaluation
+        # Step 4: Call Sonnet for evaluation with token tracking
         model = ModelRouter.get_model_for_orchestration()
         response = await self._client.messages.create(
             model=model,
             max_tokens=2000,
             system=EVALUATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
+            metadata={
+                "feature_id": "policy-review",
+                "criterion_name": criterion.name,
+            },
         )
+
+        # Log token usage
+        if hasattr(response, "usage"):
+            log.info(
+                "criterion_evaluation_tokens",
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+            )
 
         # Step 5: Parse response
         if not response.content:
