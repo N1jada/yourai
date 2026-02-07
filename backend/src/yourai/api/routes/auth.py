@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,7 +26,7 @@ _auth_service = AuthService()
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
