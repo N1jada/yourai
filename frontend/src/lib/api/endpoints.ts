@@ -5,10 +5,23 @@
 import type { ApiClient } from "./client";
 import type { LoginResponse } from "./types";
 import type { Page } from "@/lib/types/common";
-import type { UserResponse } from "@/lib/types/users";
-import type { ConversationResponse, MessageResponse } from "@/lib/types/conversations";
-import type { KnowledgeBaseResponse, DocumentResponse } from "@/lib/types/knowledge";
+import type { TenantConfig } from "@/lib/types/tenant";
+import type { UserResponse, RoleResponse, PermissionResponse, BulkInviteResult } from "@/lib/types/users";
+import type {
+  ConversationResponse,
+  ConversationTemplateResponse,
+  FeedbackResponse,
+  MessageResponse,
+} from "@/lib/types/conversations";
+import type {
+  KnowledgeBaseResponse,
+  DocumentResponse,
+  DocumentVersion,
+  SearchResult,
+} from "@/lib/types/knowledge";
 import type { PersonaResponse } from "@/lib/types/personas";
+import type { GuardrailResponse } from "@/lib/types/guardrails";
+import type { HealthResponse } from "@/lib/types/health";
 import type {
   LoginRequest,
   CreateConversation,
@@ -16,11 +29,25 @@ import type {
   SendMessage,
   CreatePersona,
   UpdatePersona,
+  CreateUser,
+  UpdateUser,
+  AssignRoles,
+  BulkInviteRequest,
+  CreateRole,
+  UpdateRole,
+  UpdateTenant,
+  CreateKnowledgeBase,
+  SearchRequest,
+  CreateGuardrail,
+  UpdateGuardrail,
+  UpdateProfile,
+  CreateFeedback,
 } from "@/lib/types/requests";
 
-/**
- * Authentication endpoints
- */
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
 export class AuthApi {
   constructor(private client: ApiClient) {}
 
@@ -41,9 +68,10 @@ export class AuthApi {
   }
 }
 
-/**
- * Conversation endpoints
- */
+// ---------------------------------------------------------------------------
+// Conversations
+// ---------------------------------------------------------------------------
+
 export class ConversationsApi {
   constructor(private client: ApiClient) {}
 
@@ -66,11 +94,21 @@ export class ConversationsApi {
   async delete(id: string): Promise<void> {
     return this.client.delete(`/api/v1/conversations/${id}`);
   }
+
+  async cancel(id: string): Promise<void> {
+    return this.client.post(`/api/v1/conversations/${id}/cancel`);
+  }
+
+  async exportConversation(id: string, format: "markdown" | "pdf" = "markdown"): Promise<Blob> {
+    // Returns raw response for download
+    return this.client.get(`/api/v1/conversations/${id}/export`, { format });
+  }
 }
 
-/**
- * Message endpoints
- */
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
 export class MessagesApi {
   constructor(private client: ApiClient) {}
 
@@ -92,9 +130,34 @@ export class MessagesApi {
   }
 }
 
-/**
- * Persona endpoints
- */
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+export class FeedbackApi {
+  constructor(private client: ApiClient) {}
+
+  async submit(messageId: string, data: CreateFeedback): Promise<FeedbackResponse> {
+    return this.client.post(`/api/v1/messages/${messageId}/feedback`, data);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Conversation Templates
+// ---------------------------------------------------------------------------
+
+export class TemplatesApi {
+  constructor(private client: ApiClient) {}
+
+  async list(): Promise<ConversationTemplateResponse[]> {
+    return this.client.get("/api/v1/conversation-templates");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Personas
+// ---------------------------------------------------------------------------
+
 export class PersonasApi {
   constructor(private client: ApiClient) {}
 
@@ -117,11 +180,16 @@ export class PersonasApi {
   async delete(id: string): Promise<void> {
     return this.client.delete(`/api/v1/personas/${id}`);
   }
+
+  async duplicate(id: string): Promise<PersonaResponse> {
+    return this.client.post(`/api/v1/personas/${id}/duplicate`);
+  }
 }
 
-/**
- * Knowledge Base endpoints
- */
+// ---------------------------------------------------------------------------
+// Knowledge Base
+// ---------------------------------------------------------------------------
+
 export class KnowledgeBaseApi {
   constructor(private client: ApiClient) {}
 
@@ -129,14 +197,27 @@ export class KnowledgeBaseApi {
     return this.client.get("/api/v1/knowledge-bases", params);
   }
 
+  async create(data: CreateKnowledgeBase): Promise<KnowledgeBaseResponse> {
+    return this.client.post("/api/v1/knowledge-bases", data);
+  }
+
   async get(id: string): Promise<KnowledgeBaseResponse> {
     return this.client.get(`/api/v1/knowledge-bases/${id}`);
   }
+
+  async delete(id: string): Promise<void> {
+    return this.client.delete(`/api/v1/knowledge-bases/${id}`);
+  }
+
+  async search(data: SearchRequest): Promise<SearchResult[]> {
+    return this.client.post("/api/v1/knowledge-bases/search", data);
+  }
 }
 
-/**
- * Document endpoints
- */
+// ---------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------
+
 export class DocumentsApi {
   constructor(private client: ApiClient) {}
 
@@ -167,25 +248,243 @@ export class DocumentsApi {
   async delete(kbId: string, documentId: string): Promise<void> {
     return this.client.delete(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`);
   }
+
+  async getVersions(kbId: string, documentId: string): Promise<DocumentVersion[]> {
+    return this.client.get(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}/versions`);
+  }
 }
 
-/**
- * Root API class that aggregates all endpoint groups
- */
+// ---------------------------------------------------------------------------
+// Users (Admin)
+// ---------------------------------------------------------------------------
+
+export class UsersApi {
+  constructor(private client: ApiClient) {}
+
+  async list(params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    status?: string;
+  }): Promise<Page<UserResponse>> {
+    return this.client.get("/api/v1/users", params);
+  }
+
+  async create(data: CreateUser): Promise<UserResponse> {
+    return this.client.post("/api/v1/users", data);
+  }
+
+  async get(id: string): Promise<UserResponse> {
+    return this.client.get(`/api/v1/users/${id}`);
+  }
+
+  async update(id: string, data: UpdateUser): Promise<UserResponse> {
+    return this.client.patch(`/api/v1/users/${id}`, data);
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.client.delete(`/api/v1/users/${id}`);
+  }
+
+  async assignRoles(id: string, data: AssignRoles): Promise<UserResponse> {
+    return this.client.post(`/api/v1/users/${id}/roles`, data);
+  }
+
+  async bulkInvite(data: BulkInviteRequest): Promise<BulkInviteResult> {
+    return this.client.post("/api/v1/users/bulk-invite", data);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Roles (Admin)
+// ---------------------------------------------------------------------------
+
+export class RolesApi {
+  constructor(private client: ApiClient) {}
+
+  async list(): Promise<RoleResponse[]> {
+    return this.client.get("/api/v1/roles");
+  }
+
+  async create(data: CreateRole): Promise<RoleResponse> {
+    return this.client.post("/api/v1/roles", data);
+  }
+
+  async get(id: string): Promise<RoleResponse> {
+    return this.client.get(`/api/v1/roles/${id}`);
+  }
+
+  async update(id: string, data: UpdateRole): Promise<RoleResponse> {
+    return this.client.patch(`/api/v1/roles/${id}`, data);
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.client.delete(`/api/v1/roles/${id}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Permissions
+// ---------------------------------------------------------------------------
+
+export class PermissionsApi {
+  constructor(private client: ApiClient) {}
+
+  async list(): Promise<PermissionResponse[]> {
+    return this.client.get("/api/v1/permissions");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Guardrails (Admin)
+// ---------------------------------------------------------------------------
+
+export class GuardrailsApi {
+  constructor(private client: ApiClient) {}
+
+  async list(params?: { page?: number; page_size?: number }): Promise<Page<GuardrailResponse>> {
+    return this.client.get("/api/v1/guardrails", params);
+  }
+
+  async create(data: CreateGuardrail): Promise<GuardrailResponse> {
+    return this.client.post("/api/v1/guardrails", data);
+  }
+
+  async get(id: string): Promise<GuardrailResponse> {
+    return this.client.get(`/api/v1/guardrails/${id}`);
+  }
+
+  async update(id: string, data: UpdateGuardrail): Promise<GuardrailResponse> {
+    return this.client.patch(`/api/v1/guardrails/${id}`, data);
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.client.delete(`/api/v1/guardrails/${id}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Activity Logs (Admin)
+// ---------------------------------------------------------------------------
+
+export interface ActivityLogFilters {
+  page?: number;
+  page_size?: number;
+  tag?: string;
+  user_id?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface ActivityLogResponse {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  user_name: string | null;
+  action: string;
+  detail: string | null;
+  tags: string[];
+  created_at: string | null;
+}
+
+export class ActivityLogsApi {
+  constructor(private client: ApiClient) {}
+
+  async list(params?: ActivityLogFilters): Promise<Page<ActivityLogResponse>> {
+    return this.client.get("/api/v1/activity-logs", params as Record<string, unknown>);
+  }
+
+  async exportCsv(params?: Omit<ActivityLogFilters, "page" | "page_size">): Promise<string> {
+    return this.client.get("/api/v1/activity-logs/export", params as Record<string, unknown>);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tenant
+// ---------------------------------------------------------------------------
+
+export class TenantApi {
+  constructor(private client: ApiClient) {}
+
+  async getConfig(): Promise<TenantConfig> {
+    return this.client.get("/api/v1/tenants/me");
+  }
+
+  async update(data: UpdateTenant): Promise<TenantConfig> {
+    return this.client.patch("/api/v1/tenants/me", data);
+  }
+
+  async getBranding(slug: string): Promise<TenantConfig> {
+    return this.client.get(`/api/v1/tenants/branding/${slug}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profile
+// ---------------------------------------------------------------------------
+
+export class ProfileApi {
+  constructor(private client: ApiClient) {}
+
+  async get(): Promise<UserResponse> {
+    return this.client.get("/api/v1/profile");
+  }
+
+  async update(data: UpdateProfile): Promise<UserResponse> {
+    return this.client.patch("/api/v1/profile", data);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+export class HealthApi {
+  constructor(private client: ApiClient) {}
+
+  async check(): Promise<HealthResponse> {
+    return this.client.get("/api/v1/health");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Root API
+// ---------------------------------------------------------------------------
+
 export class Api {
   public auth: AuthApi;
   public conversations: ConversationsApi;
   public messages: MessagesApi;
+  public feedback: FeedbackApi;
+  public templates: TemplatesApi;
   public personas: PersonasApi;
   public knowledgeBases: KnowledgeBaseApi;
   public documents: DocumentsApi;
+  public users: UsersApi;
+  public roles: RolesApi;
+  public permissions: PermissionsApi;
+  public guardrails: GuardrailsApi;
+  public activityLogs: ActivityLogsApi;
+  public tenant: TenantApi;
+  public profile: ProfileApi;
+  public health: HealthApi;
 
   constructor(client: ApiClient) {
     this.auth = new AuthApi(client);
     this.conversations = new ConversationsApi(client);
     this.messages = new MessagesApi(client);
+    this.feedback = new FeedbackApi(client);
+    this.templates = new TemplatesApi(client);
     this.personas = new PersonasApi(client);
     this.knowledgeBases = new KnowledgeBaseApi(client);
     this.documents = new DocumentsApi(client);
+    this.users = new UsersApi(client);
+    this.roles = new RolesApi(client);
+    this.permissions = new PermissionsApi(client);
+    this.guardrails = new GuardrailsApi(client);
+    this.activityLogs = new ActivityLogsApi(client);
+    this.tenant = new TenantApi(client);
+    this.profile = new ProfileApi(client);
+    this.health = new HealthApi(client);
   }
 }

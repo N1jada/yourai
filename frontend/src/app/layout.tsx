@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AuthProvider } from "@/lib/auth/auth-context";
+import { Providers } from "@/lib/providers/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,9 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
