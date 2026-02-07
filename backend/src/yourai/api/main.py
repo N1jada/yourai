@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
     from yourai.api.routes.guardrails import router as guardrails_router
     from yourai.api.routes.knowledge_bases import router as knowledge_bases_router
     from yourai.api.routes.personas import router as personas_router
+    from yourai.api.routes.policy_ontology import router as policy_ontology_router
     from yourai.api.routes.roles import router as roles_router
     from yourai.api.routes.search import router as search_router
     from yourai.api.routes.sse import router as sse_router
@@ -79,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(documents_router)
     app.include_router(search_router)
     app.include_router(personas_router)
+    app.include_router(policy_ontology_router)
     app.include_router(feedback_router)
     app.include_router(templates_router)
     app.include_router(guardrails_router)

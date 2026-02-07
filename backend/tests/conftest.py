@@ -28,6 +28,11 @@ from yourai.core.enums import (
 )
 from yourai.core.models import Permission, Role, RolePermission, Tenant, User, UserRole
 from yourai.knowledge.models import Document, KnowledgeBase
+from yourai.policy.models import (  # noqa: F401 — Import to register with SQLAlchemy
+    PolicyDefinition,
+    PolicyDefinitionGroup,
+    PolicyDefinitionTopic,
+)
 
 # In-memory async SQLite for unit tests
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
