@@ -171,6 +171,70 @@ class PolicyDefinitionResponse(BaseModel):
 # Policy Reviews
 # ============================================================================
 
+
+class Citation(BaseModel):
+    """Citation reference for legislation or guidance."""
+
+    source_type: str  # "legislation", "guidance", "case_law"
+    act_name: str | None = None
+    document_name: str | None = None
+    section: str | None = None
+    uri: str | None = None
+    excerpt: str | None = None
+    verified: bool = False
+
+
+class CriterionResult(BaseModel):
+    """Result of evaluating a single compliance criterion."""
+
+    criterion_name: str
+    criterion_priority: str  # "high", "medium", "low", "none"
+    rating: str  # "red", "amber", "green"
+    justification: str
+    citations: list[Citation] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class GapItem(BaseModel):
+    """Identified gap in policy coverage."""
+
+    area: str
+    severity: str  # "critical", "important", "advisory"
+    description: str
+    relevant_legislation: list[Citation] = Field(default_factory=list)
+
+
+class Action(BaseModel):
+    """Recommended action for policy improvement."""
+
+    priority: str  # "critical", "important", "advisory"
+    description: str
+    related_criteria: list[str] = Field(default_factory=list)
+    related_legislation: list[Citation] = Field(default_factory=list)
+
+
+class PolicyReviewResult(BaseModel):
+    """Complete policy review result structure."""
+
+    policy_definition_id: UUID
+    policy_definition_name: str
+    overall_rating: str  # "red", "amber", "green"
+    confidence: str  # "high", "medium", "low"
+    legal_evaluation: list[CriterionResult] = Field(default_factory=list)
+    gap_analysis: list[GapItem] = Field(default_factory=list)
+    recommended_actions: list[Action] = Field(default_factory=list)
+    summary: str
+    created_at: datetime
+
+
+class StartReviewRequest(BaseModel):
+    """Request to start a new policy review."""
+
+    document_text: str = Field(..., min_length=100)
+    document_name: str = Field(..., min_length=1, max_length=255)
+    policy_definition_id: UUID | None = None  # None = auto-identify
+
+
 class PolicyReviewResponse(BaseModel):
     """Response schema for policy review."""
 
@@ -180,7 +244,7 @@ class PolicyReviewResponse(BaseModel):
     user_id: UUID
     policy_definition_id: UUID | None
     state: str
-    result: dict | None  # type: ignore[type-arg]
+    result: PolicyReviewResult | None = None
     source: str | None
     citation_verification_result: dict | None  # type: ignore[type-arg]
     version: int
@@ -227,3 +291,44 @@ class BulkSeedRequest(BaseModel):
     """Request schema for bulk seeding policy definitions."""
 
     definitions: list[CreatePolicyDefinition]
+
+
+# ============================================================================
+# Review History & Trends
+# ============================================================================
+
+
+class CriterionComparison(BaseModel):
+    """Comparison of a single criterion between two reviews."""
+
+    criterion_name: str
+    previous_rating: str  # "green", "amber", "red", "unknown"
+    current_rating: str
+    changed: bool
+
+
+class ComparisonResult(BaseModel):
+    """Result of comparing two reviews."""
+
+    review1_id: UUID
+    review1_date: datetime | None
+    review1_overall_rating: str
+    review2_id: UUID
+    review2_date: datetime | None
+    review2_overall_rating: str
+    criteria_comparisons: list[CriterionComparison] = Field(default_factory=list)
+
+
+class ReviewTrends(BaseModel):
+    """Aggregate compliance trends for admin dashboard."""
+
+    total_reviews: int
+    green_count: int
+    amber_count: int
+    red_count: int
+    green_percentage: float
+    amber_percentage: float
+    red_percentage: float
+    required_policies_reviewed_count: int
+    required_policies_total: int
+    required_policies_coverage_percentage: float
