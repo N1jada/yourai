@@ -226,9 +226,7 @@ class QualityAssuranceAgent:
             "nope",
             "dunno",
         ]
-        informal_count = sum(
-            1 for phrase in informal_phrases if phrase in response.lower()
-        )
+        informal_count = sum(1 for phrase in informal_phrases if phrase in response.lower())
 
         if informal_count > 0:
             return 0.3

@@ -271,6 +271,19 @@ class DocumentService:
         chunk_count = await self._get_chunk_count(document_id, tenant_id)
         return self._to_response(doc, chunk_count=chunk_count)
 
+    async def get_status(self, document_id: UUID, tenant_id: UUID) -> DocumentProcessingState:
+        """Get the current processing state of a document."""
+        result = await self._session.execute(
+            select(Document.processing_state).where(
+                Document.id == document_id,
+                Document.tenant_id == tenant_id,
+            )
+        )
+        state = result.scalar_one_or_none()
+        if state is None:
+            raise NotFoundError("Document not found.")
+        return state
+
     async def _get_chunk_count(self, document_id: UUID, tenant_id: UUID) -> int:
         """Get the number of chunks for a document."""
         result = await self._session.execute(

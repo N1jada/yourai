@@ -62,7 +62,12 @@ class TenantService:
             raise NotFoundError("Tenant not found.")
         return tenant
 
-    async def get_branding(self, slug: str) -> BrandingConfig:
+    async def get_branding(self, tenant_id: UUID) -> BrandingConfig:
+        """Return branding config for a tenant by ID."""
+        tenant_config = await self.get_tenant(tenant_id)
+        return tenant_config.branding
+
+    async def get_branding_by_slug(self, slug: str) -> BrandingConfig:
         """Return branding config for public pre-login use."""
         tenant = await self.get_by_slug(slug)
         return BrandingConfig.model_validate(tenant.branding_config)

@@ -27,9 +27,7 @@ CACHE_HIT_THRESHOLD = 0.95
 class SemanticCacheService:
     """Service for semantic cache operations."""
 
-    def __init__(
-        self, session: AsyncSession, embedder: EmbeddingProvider | None = None
-    ) -> None:
+    def __init__(self, session: AsyncSession, embedder: EmbeddingProvider | None = None) -> None:
         self._session = session
         self._embedder = embedder or create_embedder()
 

@@ -3,22 +3,20 @@
  */
 
 import type { ApiClient } from "./client";
+import type { LoginResponse } from "./types";
+import type { Page } from "@/lib/types/common";
+import type { UserResponse } from "@/lib/types/users";
+import type { ConversationResponse, MessageResponse } from "@/lib/types/conversations";
+import type { KnowledgeBaseResponse, DocumentResponse } from "@/lib/types/knowledge";
+import type { PersonaResponse } from "@/lib/types/personas";
 import type {
-  Page,
   LoginRequest,
-  LoginResponse,
-  User,
-  Conversation,
-  CreateConversationRequest,
-  UpdateConversationRequest,
-  Message,
-  SendMessageRequest,
-  Persona,
-  CreatePersonaRequest,
-  UpdatePersonaRequest,
-  KnowledgeBase,
-  Document,
-} from "./types";
+  CreateConversation,
+  UpdateConversation,
+  SendMessage,
+  CreatePersona,
+  UpdatePersona,
+} from "@/lib/types/requests";
 
 /**
  * Authentication endpoints
@@ -34,7 +32,7 @@ export class AuthApi {
     return this.client.post("/api/v1/auth/logout");
   }
 
-  async getCurrentUser(): Promise<User> {
+  async getCurrentUser(): Promise<UserResponse> {
     return this.client.get("/api/v1/auth/me");
   }
 
@@ -49,19 +47,19 @@ export class AuthApi {
 export class ConversationsApi {
   constructor(private client: ApiClient) {}
 
-  async list(params?: { page?: number; page_size?: number }): Promise<Page<Conversation>> {
+  async list(params?: { page?: number; page_size?: number }): Promise<Page<ConversationResponse>> {
     return this.client.get("/api/v1/conversations", params);
   }
 
-  async create(data: CreateConversationRequest): Promise<Conversation> {
+  async create(data: CreateConversation): Promise<ConversationResponse> {
     return this.client.post("/api/v1/conversations", data);
   }
 
-  async get(id: string): Promise<Conversation> {
+  async get(id: string): Promise<ConversationResponse> {
     return this.client.get(`/api/v1/conversations/${id}`);
   }
 
-  async update(id: string, data: UpdateConversationRequest): Promise<Conversation> {
+  async update(id: string, data: UpdateConversation): Promise<ConversationResponse> {
     return this.client.patch(`/api/v1/conversations/${id}`, data);
   }
 
@@ -79,14 +77,14 @@ export class MessagesApi {
   async list(
     conversationId: string,
     params?: { page?: number; page_size?: number },
-  ): Promise<Page<Message>> {
+  ): Promise<Page<MessageResponse>> {
     return this.client.get(
       `/api/v1/conversations/${conversationId}/messages`,
       params,
     );
   }
 
-  async send(conversationId: string, data: SendMessageRequest): Promise<Message> {
+  async send(conversationId: string, data: SendMessage): Promise<MessageResponse> {
     return this.client.post(
       `/api/v1/conversations/${conversationId}/messages`,
       data,
@@ -100,19 +98,19 @@ export class MessagesApi {
 export class PersonasApi {
   constructor(private client: ApiClient) {}
 
-  async list(): Promise<Persona[]> {
-    return this.client.get("/api/v1/personas");
+  async list(params?: { page?: number; page_size?: number }): Promise<Page<PersonaResponse>> {
+    return this.client.get("/api/v1/personas", params);
   }
 
-  async create(data: CreatePersonaRequest): Promise<Persona> {
+  async create(data: CreatePersona): Promise<PersonaResponse> {
     return this.client.post("/api/v1/personas", data);
   }
 
-  async get(id: string): Promise<Persona> {
+  async get(id: string): Promise<PersonaResponse> {
     return this.client.get(`/api/v1/personas/${id}`);
   }
 
-  async update(id: string, data: UpdatePersonaRequest): Promise<Persona> {
+  async update(id: string, data: UpdatePersona): Promise<PersonaResponse> {
     return this.client.patch(`/api/v1/personas/${id}`, data);
   }
 
@@ -127,11 +125,11 @@ export class PersonasApi {
 export class KnowledgeBaseApi {
   constructor(private client: ApiClient) {}
 
-  async list(params?: { page?: number; page_size?: number }): Promise<Page<KnowledgeBase>> {
+  async list(params?: { page?: number; page_size?: number }): Promise<Page<KnowledgeBaseResponse>> {
     return this.client.get("/api/v1/knowledge-bases", params);
   }
 
-  async get(id: string): Promise<KnowledgeBase> {
+  async get(id: string): Promise<KnowledgeBaseResponse> {
     return this.client.get(`/api/v1/knowledge-bases/${id}`);
   }
 }
@@ -145,11 +143,11 @@ export class DocumentsApi {
   async list(
     kbId: string,
     params?: { page?: number; page_size?: number },
-  ): Promise<Page<Document>> {
+  ): Promise<Page<DocumentResponse>> {
     return this.client.get(`/api/v1/knowledge-bases/${kbId}/documents`, params);
   }
 
-  async upload(kbId: string, file: File, metadata?: Record<string, unknown>): Promise<Document> {
+  async upload(kbId: string, file: File, metadata?: Record<string, unknown>): Promise<DocumentResponse> {
     const formData = new FormData();
     formData.append("file", file);
     if (metadata) {
@@ -162,7 +160,7 @@ export class DocumentsApi {
     );
   }
 
-  async get(kbId: string, documentId: string): Promise<Document> {
+  async get(kbId: string, documentId: string): Promise<DocumentResponse> {
     return this.client.get(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`);
   }
 

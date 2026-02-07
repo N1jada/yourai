@@ -105,9 +105,7 @@ async def test_full_agent_flow_housing_question(
 
     # Mock title generation response
     mock_title_response = MagicMock()
-    mock_title_response.content = [
-        MagicMock(text="Housing Act 1985 Landlord Conditions")
-    ]
+    mock_title_response.content = [MagicMock(text="Housing Act 1985 Landlord Conditions")]
 
     # Configure mock to return different responses
     def mock_create_side_effect(*args, **kwargs):
@@ -130,9 +128,7 @@ async def test_full_agent_flow_housing_question(
 
         # Mock legislation verification - section 8 exists (VERIFIED)
         mock_verify_result = MagicMock()
-        mock_verify_result.content = [
-            MagicMock(text='{"verified": true, "found": true}')
-        ]
+        mock_verify_result.content = [MagicMock(text='{"verified": true, "found": true}')]
         mock_lex_instance.call_tool.return_value = mock_verify_result
 
         # Create AgentEngine and invoke (disable semantic cache in tests)
@@ -165,7 +161,9 @@ async def test_full_agent_flow_housing_question(
     # 1. Conversation title should be generated (first message)
     assert refreshed_conversation.title is not None
     assert len(refreshed_conversation.title) <= 70
-    assert "Housing Act" in refreshed_conversation.title or "Landlord" in refreshed_conversation.title
+    assert (
+        "Housing Act" in refreshed_conversation.title or "Landlord" in refreshed_conversation.title
+    )
 
     # 2. Messages should be created
     from sqlalchemy import select
@@ -173,7 +171,9 @@ async def test_full_agent_flow_housing_question(
     from yourai.agents.models import Message
 
     messages_result = await test_session.execute(
-        select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at)
+        select(Message)
+        .where(Message.conversation_id == conversation.id)
+        .order_by(Message.created_at)
     )
     messages = list(messages_result.scalars().all())
 
@@ -214,7 +214,7 @@ async def test_full_agent_flow_housing_question(
     assert mock_pipeline.publish.call_count > 0
 
     # Check that key events were published
-    published_events = [str(call.args) for call in mock_pipeline.publish.call_list]
+    published_events = [str(call.args) for call in mock_pipeline.publish.call_args_list]
     event_types = set()
     for event_str in published_events:
         if "agent_start" in event_str:
@@ -364,8 +364,9 @@ async def test_full_agent_flow_with_fake_citation(
     from yourai.agents.models import Message
 
     messages_result = await test_session.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation.id, Message.role == "assistant")
+        select(Message).where(
+            Message.conversation_id == conversation.id, Message.role == "assistant"
+        )
     )
     assistant_msg = messages_result.scalar_one()
 

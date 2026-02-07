@@ -16,6 +16,7 @@ from yourai.agents.enums import (
     MessageRole,
     MessageState,
 )
+from yourai.core.enums import FeedbackRating, FeedbackReviewStatus  # noqa: TCH002
 
 # ---------------------------------------------------------------------------
 # Persona
@@ -32,7 +33,7 @@ class PersonaResponse(BaseModel):
     name: str
     description: str | None
     system_instructions: str | None
-    activated_skills: list[str]
+    activated_skills: list[dict[str, object]]
     usage_count: int
     created_at: datetime | None
     updated_at: datetime | None
@@ -44,7 +45,7 @@ class CreatePersona(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     system_instructions: str | None = None
-    activated_skills: list[str] = Field(default_factory=list)
+    activated_skills: list[dict[str, object]] = Field(default_factory=list)
 
 
 class UpdatePersona(BaseModel):
@@ -53,7 +54,7 @@ class UpdatePersona(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     system_instructions: str | None = None
-    activated_skills: list[str] | None = None
+    activated_skills: list[dict[str, object]] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +73,7 @@ class ConversationResponse(BaseModel):
     title: str | None
     state: ConversationState
     template_id: UUID | None
+    message_count: int = 0
     deleted_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
@@ -92,6 +94,32 @@ class UpdateConversation(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Feedback
+# ---------------------------------------------------------------------------
+
+
+class FeedbackResponse(BaseModel):
+    """Feedback response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    message_id: UUID
+    user_id: UUID
+    rating: FeedbackRating
+    comment: str | None
+    review_status: FeedbackReviewStatus
+    created_at: datetime | None
+
+
+class CreateFeedback(BaseModel):
+    """Submit feedback on a message."""
+
+    rating: FeedbackRating
+    comment: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Message
 # ---------------------------------------------------------------------------
 
@@ -109,9 +137,10 @@ class MessageResponse(BaseModel):
     content: str
     state: MessageState
     metadata_: dict[str, object]
-    file_attachments: list[str]
+    file_attachments: list[dict[str, object]]
     confidence_level: ConfidenceLevel | None
     verification_result: dict[str, object] | None
+    feedback: FeedbackResponse | None = None
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -121,7 +150,7 @@ class SendMessage(BaseModel):
 
     content: str = Field(..., min_length=1)
     persona_id: UUID | None = None
-    file_attachments: list[str] = Field(default_factory=list)
+    attachments: list[dict[str, object]] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +179,23 @@ class AgentInvocationResponse(BaseModel):
     cache_hit: bool
     created_at: datetime | None
     updated_at: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Conversation Template
+# ---------------------------------------------------------------------------
+
+
+class ConversationTemplateResponse(BaseModel):
+    """Conversation template response schema (stub)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    name: str
+    description: str | None = None
+    created_at: datetime | None = None
 
 
 # ---------------------------------------------------------------------------

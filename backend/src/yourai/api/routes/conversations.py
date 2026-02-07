@@ -12,7 +12,7 @@ import asyncio
 from uuid import UUID
 
 from anthropic import AsyncAnthropic
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -190,3 +190,75 @@ async def send_message(
     asyncio.create_task(run_agent())
 
     return user_msg
+
+
+@router.get("/{conversation_id}/export")
+async def export_conversation(
+    conversation_id: UUID,
+    format: str = Query("markdown", regex="^(markdown|pdf)$"),  # noqa: A002
+    tenant: TenantConfig = Depends(get_current_tenant),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """Export a conversation as markdown or PDF download."""
+    if format == "pdf":
+        raise HTTPException(status_code=501, detail="PDF export is not yet implemented.")
+
+    # Load conversation
+    conv_service = ConversationService(session)
+    conversation = await conv_service.get_conversation(conversation_id, tenant.id, user.id)
+
+    # Load messages
+    msg_service = MessageService(session)
+    messages_page = await msg_service.list_messages(
+        conversation_id, tenant.id, page=1, page_size=10000
+    )
+
+    # Render markdown
+    lines = [f"# {conversation.title or 'Untitled Conversation'}\n"]
+    for msg in messages_page.items:
+        role_label = "User" if msg.role == "user" else "Assistant"
+        lines.append(f"## {role_label}\n\n{msg.content}\n")
+
+    content = "\n".join(lines)
+    filename = f"conversation-{conversation_id}.md"
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{conversation_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_conversation(
+    conversation_id: UUID,
+    tenant: TenantConfig = Depends(get_current_tenant),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
+) -> Response:
+    """Cancel a running agent invocation for this conversation."""
+    from sqlalchemy import select as sa_select
+
+    from yourai.agents.models import AgentInvocation
+
+    # Find running invocation for this conversation
+    result = await session.execute(
+        sa_select(AgentInvocation).where(
+            AgentInvocation.conversation_id == conversation_id,
+            AgentInvocation.tenant_id == tenant.id,
+            AgentInvocation.state == "running",
+        )
+    )
+    invocation = result.scalar_one_or_none()
+    if invocation is None:
+        raise HTTPException(status_code=404, detail="No running invocation found.")
+
+    engine = AgentEngine(
+        session,
+        redis,
+        AsyncAnthropic(api_key=settings.anthropic_api_key),
+    )
+    await engine.cancel(invocation.id, tenant.id)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

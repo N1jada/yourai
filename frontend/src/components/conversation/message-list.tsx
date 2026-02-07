@@ -4,10 +4,10 @@
 
 import { useEffect, useRef } from "react";
 import { MessageBubble } from "./message-bubble";
-import type { Message } from "@/lib/api/types";
+import type { MessageResponse } from "@/lib/types/conversations";
 
 interface MessageListProps {
-  messages: Message[];
+  messages: MessageResponse[];
   streamingText?: string;
   isStreaming?: boolean;
 }
@@ -31,11 +31,20 @@ export function MessageList({ messages, streamingText, isStreaming }: MessageLis
         <MessageBubble
           message={{
             id: "streaming",
+            tenant_id: "",
+            conversation_id: "",
+            request_id: null,
             role: "assistant",
             content: streamingText,
-            state: "streaming",
+            state: "pending",
+            metadata_: {},
+            file_attachments: [],
+            confidence_level: null,
+            verification_result: null,
+            feedback: null,
             created_at: new Date().toISOString(),
-          } as Message}
+            updated_at: null,
+          }}
           isStreaming
         />
       )}

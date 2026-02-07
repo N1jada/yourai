@@ -4,10 +4,11 @@
 
 import { User, Bot } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { Message } from "@/lib/api/types";
+import type { MessageResponse } from "@/lib/types/conversations";
+import type { ConfidenceLevel } from "@/lib/types/enums";
 
 interface MessageBubbleProps {
-  message: Message;
+  message: MessageResponse;
   isStreaming?: boolean;
 }
 
@@ -65,7 +66,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
 /**
  * Confidence Badge Component
  */
-function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
+function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
   const colors = {
     high: "bg-confidence-high text-white",
     medium: "bg-confidence-medium text-neutral-900",

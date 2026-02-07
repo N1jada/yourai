@@ -10,16 +10,16 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { SSEClient } from "@/lib/streaming/sse-client";
 import { MessageList } from "@/components/conversation/message-list";
 import { ChatInput } from "@/components/conversation/chat-input";
-import type { Message, Conversation } from "@/lib/api/types";
-import type { SSEEvent } from "@/lib/streaming/sse-client";
+import type { ConversationResponse, MessageResponse } from "@/lib/types/conversations";
+import type { SSEEventEnvelope } from "@/lib/streaming/sse-client";
 
 export default function ConversationPage() {
   const params = useParams();
   const conversationId = params.id as string;
   const { api } = useAuth();
 
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<ConversationResponse | null>(null);
+  const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -64,10 +64,11 @@ export default function ConversationPage() {
   }, [conversationId]);
 
   // Handle SSE events
-  const handleSSEEvent = (event: SSEEvent) => {
-    switch (event.event) {
+  const handleSSEEvent = (event: SSEEventEnvelope) => {
+    const data = event.data;
+    switch (data.event_type) {
       case "content_delta":
-        setStreamingText((prev) => prev + event.data.text);
+        setStreamingText((prev) => prev + data.text);
         break;
 
       case "message_complete":
@@ -82,12 +83,12 @@ export default function ConversationPage() {
 
       case "conversation_title_updated":
         setConversation((prev) =>
-          prev ? { ...prev, title: event.data.title } : null,
+          prev ? { ...prev, title: data.title } : null,
         );
         break;
 
       case "error":
-        console.error("Agent error:", event.data);
+        console.error("Agent error:", data);
         setIsSending(false);
         setStreamingText("");
         break;

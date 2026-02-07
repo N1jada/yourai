@@ -2,7 +2,7 @@
  * API Client — Base HTTP client with auth token handling
  */
 
-import type { ApiError } from "./types";
+import type { ErrorResponse } from "@/lib/types/common";
 
 export class ApiClientError extends Error {
   constructor(
@@ -64,12 +64,13 @@ export class ApiClient {
 
       // Handle other error statuses
       if (!response.ok) {
-        const errorData: ApiError = await response.json().catch(() => ({
-          detail: `HTTP ${response.status}: ${response.statusText}`,
+        const errorData: ErrorResponse = await response.json().catch(() => ({
+          code: "unknown",
+          message: `HTTP ${response.status}: ${response.statusText}`,
         }));
 
         throw new ApiClientError(
-          errorData.detail,
+          errorData.message,
           response.status,
           errorData.code,
         );
@@ -170,12 +171,13 @@ export class ApiClient {
       }
 
       if (!response.ok) {
-        const errorData: ApiError = await response.json().catch(() => ({
-          detail: `HTTP ${response.status}: ${response.statusText}`,
+        const errorData: ErrorResponse = await response.json().catch(() => ({
+          code: "unknown",
+          message: `HTTP ${response.status}: ${response.statusText}`,
         }));
 
         throw new ApiClientError(
-          errorData.detail,
+          errorData.message,
           response.status,
           errorData.code,
         );

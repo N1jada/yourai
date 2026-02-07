@@ -11,7 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from yourai.core.enums import SubscriptionTier, UserStatus
+from yourai.core.enums import GuardrailStatus, SubscriptionTier, UserStatus  # noqa: TCH002
 
 T = TypeVar("T")
 
@@ -216,3 +216,75 @@ class BulkInviteResult(BaseModel):
     created: int
     skipped: int
     errors: list[dict[str, object]]
+
+
+# ---------------------------------------------------------------------------
+# Guardrail
+# ---------------------------------------------------------------------------
+
+
+class GuardrailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    name: str
+    description: str | None
+    status: GuardrailStatus
+    configuration_rules: dict[str, object]
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class CreateGuardrail(BaseModel):
+    name: str
+    description: str | None = None
+    configuration_rules: dict[str, object] = {}
+
+
+class UpdateGuardrail(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: GuardrailStatus | None = None
+    configuration_rules: dict[str, object] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Activity Log
+# ---------------------------------------------------------------------------
+
+
+class ActivityLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    user_id: UUID | None
+    user_name: str | None
+    action: str
+    detail: str | None
+    tags: list[str]
+    retention_expiry_at: datetime | None
+    created_at: datetime | None
+
+
+class ActivityLogFilters(BaseModel):
+    action: str | None = None
+    user_id: UUID | None = None
+    tag: str | None = None
+    page: int = 1
+    page_size: int = 50
+
+
+# ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+
+
+class HealthResponse(BaseModel):
+    status: str
+    database: str
+    qdrant: str
+    redis: str
+    lex: str
+    version: str

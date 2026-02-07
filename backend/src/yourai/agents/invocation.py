@@ -83,6 +83,7 @@ class AgentEngine:
         tenant_id: UUID,
         user_id: UUID,
         persona_id: UUID | None = None,
+        attachments: list[dict[str, object]] | None = None,
     ) -> None:
         """Main agent invocation. Emits SSE events during processing.
 
@@ -121,7 +122,7 @@ class AgentEngine:
                 tenant_id,
                 # We create the message via service, but SendMessage schema expects content
                 # For now, we'll create the Message ORM directly to avoid circular import
-                type("SendMessage", (), {"content": message, "file_attachments": []})(),
+                type("SendMessage", (), {"content": message, "attachments": None})(),
             )
 
             # 2. Load conversation history
@@ -145,6 +146,7 @@ class AgentEngine:
                 query=message,
                 persona_id=persona_id,
                 state="running",
+                attachments=attachments or [],
             )
             self._session.add(invocation)
             await self._session.flush()
@@ -272,9 +274,7 @@ class AgentEngine:
 
             # 12c. Confidence scoring (Session 4)
             # Infer whether sources were used based on router decision
-            has_sources = (
-                len(router_decision.sources) > 0 if router_decision else False
-            )
+            has_sources = len(router_decision.sources) > 0 if router_decision else False
             confidence_level, confidence_reason = calculate_confidence(
                 verification_result=verification_result,
                 router_decision=router_decision,
@@ -383,6 +383,41 @@ class AgentEngine:
             # Rollback on error
             await self._session.rollback()
             raise
+
+    async def cancel(self, invocation_id: UUID, tenant_id: UUID) -> None:
+        """Cancel a running invocation."""
+        result = await self._session.execute(
+            select(AgentInvocation).where(
+                AgentInvocation.id == invocation_id,
+                AgentInvocation.tenant_id == tenant_id,
+                AgentInvocation.state == "running",
+            )
+        )
+        invocation = result.scalar_one_or_none()
+        if invocation is None:
+            from yourai.core.exceptions import NotFoundError
+
+            raise NotFoundError("Running invocation not found.")
+
+        invocation.state = "cancelled"
+        self._session.add(invocation)
+        await self._session.flush()
+
+        if invocation.conversation_id:
+            channel = SSEChannel.for_conversation(tenant_id, invocation.conversation_id)
+            from yourai.api.sse.events import ConversationCancelledEvent
+
+            await emit_agent_event(
+                self._redis,
+                channel,
+                ConversationCancelledEvent(conversation_id=str(invocation.conversation_id)),
+            )
+
+        logger.info(
+            "invocation_cancelled",
+            invocation_id=str(invocation_id),
+            tenant_id=str(tenant_id),
+        )
 
     async def _load_history(self, conversation_id: UUID, tenant_id: UUID) -> list[Message]:
         """Loads recent conversation history (last 20 messages).

@@ -9,12 +9,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Plus, MessageSquare } from "lucide-react";
-import type { Conversation } from "@/lib/api/types";
+import type { ConversationResponse } from "@/lib/types/conversations";
 
 export default function ConversationsPage() {
   const { api } = useAuth();
   const router = useRouter();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load conversations on mount
@@ -99,7 +99,7 @@ function ConversationCard({
   conversation,
   onClick,
 }: {
-  conversation: Conversation;
+  conversation: ConversationResponse;
   onClick: () => void;
 }) {
   return (
@@ -114,7 +114,7 @@ function ConversationCard({
             {conversation.title || "Untitled Conversation"}
           </h3>
           <p className="mt-1 text-sm text-neutral-500">
-            {new Date(conversation.created_at).toLocaleDateString()}
+            {conversation.created_at ? new Date(conversation.created_at).toLocaleDateString() : ""}
           </p>
         </div>
       </div>

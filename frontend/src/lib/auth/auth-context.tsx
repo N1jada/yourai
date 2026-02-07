@@ -8,11 +8,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from "next/navigation";
 import { ApiClient } from "../api/client";
 import { Api } from "../api/endpoints";
-import type { User, LoginRequest } from "../api/types";
+import type { UserResponse } from "@/lib/types/users";
+import type { LoginRequest } from "@/lib/types/requests";
 import { tokenStorage } from "./token-storage";
 
 interface AuthContextValue {
-  user: User | null;
+  user: UserResponse | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
@@ -23,7 +24,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 

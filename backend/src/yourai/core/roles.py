@@ -203,19 +203,22 @@ class PermissionChecker:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def check(self, user_id: UUID, permission: str) -> bool:
+    async def check(self, user_id: UUID, permission: str, tenant_id: UUID | None = None) -> bool:
         """Return True if user has the permission via any assigned role."""
-        result = await self._session.execute(
+        query = (
             select(Permission.name)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
             .join(Role, Role.id == RolePermission.role_id)
             .join(UserRole, UserRole.role_id == Role.id)
             .where(UserRole.user_id == user_id, Permission.name == permission)
         )
+        if tenant_id is not None:
+            query = query.where(Role.tenant_id == tenant_id)
+        result = await self._session.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def require(self, user_id: UUID, permission: str) -> None:
+    async def require(self, user_id: UUID, permission: str, tenant_id: UUID | None = None) -> None:
         """Raise 403 if user lacks the permission."""
-        has_permission = await self.check(user_id, permission)
+        has_permission = await self.check(user_id, permission, tenant_id)
         if not has_permission:
             raise PermissionDeniedError(f"Permission '{permission}' is required for this action.")

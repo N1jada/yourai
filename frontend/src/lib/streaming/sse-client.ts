@@ -3,79 +3,35 @@
  */
 
 import { tokenStorage } from "../auth/token-storage";
+import type { AnySSEEvent, SSEEventType } from "@/lib/types/stream";
 
 /**
- * SSE Event types (matching backend SSEEventType enum)
+ * Wrapper adding timestamp and optional sequence number to parsed events.
  */
-export type SSEEventType =
-  | "agent_start"
-  | "agent_progress"
-  | "agent_complete"
-  | "content_delta"
-  | "content_block_start"
-  | "content_block_end"
-  | "message_state"
-  | "message_complete"
-  | "verification_result"
-  | "confidence_update"
-  | "conversation_title_updating"
-  | "conversation_title_updated"
-  | "citation_inline"
-  | "source_added"
-  | "usage_metrics"
-  | "error";
-
-/**
- * Base SSE event shape
- */
-export interface SSEEvent<T = unknown> {
+export interface SSEEventEnvelope<T = AnySSEEvent> {
   event: SSEEventType;
   data: T;
   timestamp: string;
   sequence?: number;
 }
 
-/**
- * Event data types
- */
-export interface AgentStartEvent {
-  agent_name: string;
-  task_description?: string;
-}
+// Re-export stream types for consumer convenience
+export type { SSEEventType, AnySSEEvent } from "@/lib/types/stream";
+export type {
+  AgentStartEvent,
+  AgentCompleteEvent,
+  ContentDeltaEvent,
+  VerificationResultEvent,
+  ConfidenceUpdateEvent,
+  MessageCompleteEvent,
+  ConversationTitleUpdatedEvent,
+  ErrorEvent,
+  StreamEvent,
+  UserPushEvent,
+} from "@/lib/types/stream";
 
-export interface AgentCompleteEvent {
-  agent_name: string;
-  duration_ms?: number;
-}
-
-export interface ContentDeltaEvent {
-  text: string;
-}
-
-export interface VerificationResultEvent {
-  citations_checked: number;
-  citations_verified: number;
-  issues: string[];
-}
-
-export interface ConfidenceUpdateEvent {
-  level: "high" | "medium" | "low";
-  reason?: string;
-}
-
-export interface MessageCompleteEvent {
-  message_id: string;
-}
-
-export interface ConversationTitleUpdatedEvent {
-  conversation_id: string;
-  title: string;
-}
-
-export interface ErrorEvent {
-  error: string;
-  details?: string;
-}
+/** @deprecated Use SSEEventEnvelope instead */
+export type SSEEvent<T = unknown> = SSEEventEnvelope<T>;
 
 /**
  * SSE Client for conversation streams
@@ -93,7 +49,7 @@ export class SSEClient {
    */
   connect(
     conversationId: string,
-    onEvent: (event: SSEEvent) => void,
+    onEvent: (event: SSEEventEnvelope) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const token = tokenStorage.getToken();
@@ -109,7 +65,7 @@ export class SSEClient {
     // Handle all event types
     this.eventSource.onmessage = (event) => {
       try {
-        const parsedEvent: SSEEvent = JSON.parse(event.data);
+        const parsedEvent: SSEEventEnvelope = JSON.parse(event.data);
         onEvent(parsedEvent);
       } catch (error) {
         console.error("Failed to parse SSE event:", error);

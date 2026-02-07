@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-from yourai.agents.models import Conversation
+from yourai.agents.models import Conversation, Message
 from yourai.agents.schemas import ConversationResponse, CreateConversation, UpdateConversation
 from yourai.core.exceptions import NotFoundError
 from yourai.core.schemas import Page
@@ -43,7 +43,8 @@ class ConversationService:
         conversation = result.scalar_one_or_none()
         if conversation is None:
             raise NotFoundError("Conversation not found.")
-        return self._to_response(conversation)
+        message_count = await self._get_message_count(conversation_id, tenant_id)
+        return self._to_response(conversation, message_count=message_count)
 
     async def list_conversations(
         self, tenant_id: UUID, user_id: UUID, page: int = 1, page_size: int = 50
@@ -67,8 +68,13 @@ class ConversationService:
         result = await self._session.execute(query)
         conversations = list(result.scalars().all())
 
+        items = []
+        for c in conversations:
+            msg_count = await self._get_message_count(c.id, tenant_id)
+            items.append(self._to_response(c, message_count=msg_count))
+
         return Page(
-            items=[self._to_response(c) for c in conversations],
+            items=items,
             total=total,
             page=page,
             page_size=page_size,
@@ -95,7 +101,7 @@ class ConversationService:
             tenant_id=str(tenant_id),
             user_id=str(user_id),
         )
-        return self._to_response(conversation)
+        return self._to_response(conversation, message_count=0)
 
     async def update_conversation(
         self, conversation_id: UUID, tenant_id: UUID, user_id: UUID, data: UpdateConversation
@@ -126,7 +132,8 @@ class ConversationService:
             tenant_id=str(tenant_id),
             user_id=str(user_id),
         )
-        return self._to_response(conversation)
+        message_count = await self._get_message_count(conversation_id, tenant_id)
+        return self._to_response(conversation, message_count=message_count)
 
     async def delete_conversation(
         self, conversation_id: UUID, tenant_id: UUID, user_id: UUID
@@ -154,8 +161,18 @@ class ConversationService:
             user_id=str(user_id),
         )
 
+    async def _get_message_count(self, conversation_id: UUID, tenant_id: UUID) -> int:
+        """Get the number of messages in a conversation."""
+        result = await self._session.execute(
+            select(func.count(Message.id)).where(
+                Message.conversation_id == conversation_id,
+                Message.tenant_id == tenant_id,
+            )
+        )
+        return result.scalar() or 0
+
     @staticmethod
-    def _to_response(conversation: Conversation) -> ConversationResponse:
+    def _to_response(conversation: Conversation, *, message_count: int = 0) -> ConversationResponse:
         """Convert ORM model to Pydantic response.
 
         Manual construction avoids uuid_utils.UUID vs uuid.UUID issues (see MEMORY.md).
@@ -167,6 +184,7 @@ class ConversationService:
             title=conversation.title,
             state=conversation.state,
             template_id=UUID(str(conversation.template_id)) if conversation.template_id else None,
+            message_count=message_count,
             deleted_at=conversation.deleted_at,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,

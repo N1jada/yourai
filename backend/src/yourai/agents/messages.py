@@ -94,7 +94,7 @@ class MessageService:
             conversation_id=conversation_id,
             role=MessageRole.USER,
             content=data.content,
-            file_attachments=data.file_attachments,
+            file_attachments=data.attachments or [],
         )
         self._session.add(message)
         await self._session.flush()

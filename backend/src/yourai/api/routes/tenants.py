@@ -41,4 +41,4 @@ async def get_branding(
 ) -> BrandingConfig:
     """Return branding config for pre-login use. Public endpoint."""
     tenant_service = TenantService(session)
-    return await tenant_service.get_branding(slug)
+    return await tenant_service.get_branding_by_slug(slug)

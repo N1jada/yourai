@@ -29,7 +29,7 @@ async def refresh_token(body: dict[str, str]) -> TokenPair:
     refresh_token_str = body.get("refresh_token")
     if not refresh_token_str:
         raise UnauthorisedError("refresh_token is required.")
-    return _auth_service.refresh_token(refresh_token_str)
+    return await _auth_service.refresh_token(refresh_token_str)
 
 
 @router.post("/logout", status_code=204)
@@ -48,7 +48,7 @@ async def create_dev_token(
     """Issue a JWT for development/testing. Only available in debug mode."""
     if not settings.debug:
         raise UnauthorisedError("Dev token endpoint is only available in debug mode.")
-    return _auth_service.create_token_pair(
+    return await _auth_service.create_token_pair(
         user_id=body.user_id,
         tenant_id=body.tenant_id,
         email=body.email,

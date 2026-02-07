@@ -287,9 +287,7 @@ class CitationVerificationAgent:
             1 for c in verified_citations if c.verification_status == VerificationStatus.VERIFIED
         )
         unverified_count = sum(
-            1
-            for c in verified_citations
-            if c.verification_status == VerificationStatus.UNVERIFIED
+            1 for c in verified_citations if c.verification_status == VerificationStatus.UNVERIFIED
         )
         removed_count = sum(
             1 for c in verified_citations if c.verification_status == VerificationStatus.REMOVED

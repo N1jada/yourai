@@ -22,6 +22,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,6 +36,7 @@ from yourai.agents.enums import (
     ModelTier,
 )
 from yourai.core.database import Base, TenantScopedMixin
+from yourai.core.enums import FeedbackRating, FeedbackReviewStatus  # noqa: TCH002
 
 
 class Persona(TenantScopedMixin, Base):
@@ -173,6 +175,27 @@ class AgentInvocationEvent(Base):
 
     # Relationships
     invocation: Mapped[AgentInvocation] = relationship(back_populates="events")
+
+
+class Feedback(TenantScopedMixin, Base):
+    """User feedback on a message (thumbs up/down with optional comment)."""
+
+    __tablename__ = "feedbacks"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_feedbacks_message_user"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid_utils.uuid7)
+    message_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    rating: Mapped[FeedbackRating] = mapped_column(String, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_status: Mapped[FeedbackReviewStatus] = mapped_column(
+        String, nullable=False, default=FeedbackReviewStatus.PENDING
+    )
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class SemanticCacheEntry(TenantScopedMixin, Base):

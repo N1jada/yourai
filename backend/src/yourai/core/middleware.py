@@ -39,7 +39,7 @@ async def get_token_claims(
     """Extract and verify JWT from the Authorization header."""
     if credentials is None:
         raise UnauthorisedError("Authentication required.")
-    return _auth_service.verify_token(credentials.credentials)
+    return await _auth_service.verify_token(credentials.credentials)
 
 
 async def get_current_tenant(
@@ -94,6 +94,6 @@ def require_permission(
         session: AsyncSession = Depends(get_db_session),
     ) -> None:
         checker = PermissionChecker(session)
-        await checker.require(user.id, permission)
+        await checker.require(user.id, permission, user.tenant_id)
 
     return _check

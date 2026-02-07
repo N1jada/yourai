@@ -78,8 +78,7 @@ Respond with ONLY the title, nothing else."""
                     {
                         "role": "user",
                         "content": (
-                            f"Generate a title for this query:\n\n"
-                            f"{first_user_message[:500]}"
+                            f"Generate a title for this query:\n\n{first_user_message[:500]}"
                         ),
                     }
                 ],

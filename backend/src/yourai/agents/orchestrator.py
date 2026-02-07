@@ -175,9 +175,9 @@ class OrchestratorAgent:
                         if source.source_type.value == "company_policy":
                             context.policy_sources.append(source)
                         elif source.source_type.value == "uk_legislation":
-                            context.legislation_sources.append(source) # type: ignore[arg-type]
+                            context.legislation_sources.append(source)  # type: ignore[arg-type]
                         elif source.source_type.value == "case_law":
-                            context.case_law_sources.append(source) # type: ignore[arg-type]
+                            context.case_law_sources.append(source)  # type: ignore[arg-type]
 
         logger.info(
             "knowledge_workers_complete",
@@ -194,7 +194,7 @@ class OrchestratorAgent:
         worker = LegislationWorker(settings.lex_base_url + "/mcp")
         try:
             await worker.connect()
-            return await worker.search(query, tenant_id, limit=5) # type: ignore[return-value]
+            return await worker.search(query, tenant_id, limit=5)  # type: ignore[return-value]
         finally:
             await worker.disconnect()
 
@@ -203,7 +203,7 @@ class OrchestratorAgent:
         worker = CaseLawWorker(settings.lex_base_url + "/mcp")
         try:
             await worker.connect()
-            return await worker.search(query, tenant_id, limit=3) # type: ignore[return-value]
+            return await worker.search(query, tenant_id, limit=3)  # type: ignore[return-value]
         finally:
             await worker.disconnect()
 

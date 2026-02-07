@@ -1,193 +1,62 @@
 /**
- * API Types — Type definitions matching backend schemas
+ * API Types — Re-exports from @/lib/types for backward compatibility.
+ *
+ * New code should import from "@/lib/types" or specific sub-modules directly.
  */
 
-// ============================================================================
-// Common
-// ============================================================================
+// Re-export common types
+export type { Page, ErrorResponse } from "@/lib/types/common";
 
-export interface Page<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
+// Re-export enums
+export type {
+  ConversationState,
+  MessageRole,
+  MessageState,
+  ConfidenceLevel,
+  UserStatus,
+  DocumentProcessingState,
+  KnowledgeBaseCategory,
+  KnowledgeBaseSourceType,
+  FeedbackRating,
+  FeedbackReviewStatus,
+  GuardrailStatus,
+} from "@/lib/types/enums";
 
-export interface ApiError {
-  detail: string;
-  code?: string;
-}
+// Re-export auth
+export type { TokenPair } from "@/lib/types/tenant";
 
-// ============================================================================
-// Auth
-// ============================================================================
+// Re-export request types
+export type {
+  LoginRequest,
+  CreateConversation as CreateConversationRequest,
+  UpdateConversation as UpdateConversationRequest,
+  SendMessage as SendMessageRequest,
+  CreatePersona as CreatePersonaRequest,
+  UpdatePersona as UpdatePersonaRequest,
+  CreateKnowledgeBase as CreateKnowledgeBaseRequest,
+} from "@/lib/types/requests";
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+// Re-export response types with aliases matching old names
+export type { UserResponse as User } from "@/lib/types/users";
+export type {
+  ConversationResponse as Conversation,
+  MessageResponse as Message,
+  FeedbackResponse,
+  ConversationTemplateResponse,
+} from "@/lib/types/conversations";
+export type {
+  KnowledgeBaseResponse as KnowledgeBase,
+  DocumentResponse as Document,
+  SearchResult,
+} from "@/lib/types/knowledge";
+export type { PersonaResponse as Persona } from "@/lib/types/personas";
+export type { GuardrailResponse } from "@/lib/types/guardrails";
+export type { HealthResponse } from "@/lib/types/health";
 
+// LoginResponse kept here since it's a frontend-specific shape (includes user)
 export interface LoginResponse {
   access_token: string;
-  token_type: string;
+  refresh_token: string;
   expires_in: number;
-  user: User;
-}
-
-export interface User {
-  id: string;
-  tenant_id: string;
-  email: string;
-  given_name: string;
-  family_name: string;
-  role: "owner" | "admin" | "analyst" | "viewer";
-  status: "active" | "inactive" | "suspended";
-  created_at: string;
-  last_login_at?: string;
-}
-
-// ============================================================================
-// Conversations
-// ============================================================================
-
-export interface Conversation {
-  id: string;
-  tenant_id: string;
-  user_id: string;
-  title?: string;
-  state: "ready" | "processing" | "error";
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateConversationRequest {
-  title?: string;
-}
-
-export interface UpdateConversationRequest {
-  title?: string;
-}
-
-// ============================================================================
-// Messages
-// ============================================================================
-
-export type MessageRole = "user" | "assistant" | "system";
-
-export type MessageState =
-  | "pending"
-  | "streaming"
-  | "success"
-  | "error"
-  | "cancelled";
-
-export type ConfidenceLevel = "high" | "medium" | "low";
-
-export interface Message {
-  id: string;
-  tenant_id: string;
-  conversation_id: string;
-  role: MessageRole;
-  content: string;
-  state: MessageState;
-  confidence_level?: ConfidenceLevel;
-  verification_result?: VerificationResult;
-  file_attachments?: FileAttachment[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SendMessageRequest {
-  content: string;
-  file_attachments?: string[]; // Document IDs
-}
-
-export interface VerificationResult {
-  citations_checked: number;
-  citations_verified: number;
-  citations_removed: number;
-  verified_citations: VerifiedCitation[];
-  issues: string[];
-}
-
-export interface VerifiedCitation {
-  citation_text: string;
-  verification_status: "verified" | "removed" | "pending";
-  reason?: string;
-}
-
-export interface FileAttachment {
-  id: string;
-  filename: string;
-  size_bytes: number;
-}
-
-// ============================================================================
-// Personas
-// ============================================================================
-
-export interface Persona {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description?: string;
-  system_instructions?: string;
-  activated_skills: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreatePersonaRequest {
-  name: string;
-  description?: string;
-  system_instructions?: string;
-  activated_skills?: string[];
-}
-
-export interface UpdatePersonaRequest {
-  name?: string;
-  description?: string;
-  system_instructions?: string;
-  activated_skills?: string[];
-  is_active?: boolean;
-}
-
-// ============================================================================
-// Knowledge Base
-// ============================================================================
-
-export interface KnowledgeBase {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description?: string;
-  embedding_model: string;
-  is_active: boolean;
-  document_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Document {
-  id: string;
-  tenant_id: string;
-  kb_id: string;
-  title: string;
-  source_type: "upload" | "url" | "api" | "manual";
-  source_url?: string;
-  mime_type: string;
-  size_bytes: number;
-  status: "pending" | "processing" | "ready" | "failed";
-  error_message?: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UploadDocumentRequest {
-  kb_id: string;
-  file: File;
-  metadata?: Record<string, unknown>;
+  user: import("@/lib/types/users").UserResponse;
 }

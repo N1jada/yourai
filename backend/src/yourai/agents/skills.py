@@ -190,9 +190,7 @@ class SkillRegistry:
 
         # Build combined prompt
         prompt_parts = ["\n---\n# Domain Skills\n"]
-        prompt_parts.append(
-            "The following domain-specific guidance applies to this query:\n"
-        )
+        prompt_parts.append("The following domain-specific guidance applies to this query:\n")
 
         for skill in skills:
             prompt_parts.append(skill.system_prompt_addition)
