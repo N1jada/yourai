@@ -51,7 +51,7 @@ async def login(
     result = await session.execute(
         select(User)
         .options(selectinload(User.roles).selectinload(Role.permissions))
-        .where(User.email == body.email, User.status == UserStatus.ACTIVE)
+        .where(User.email == body.email, User.status == UserStatus.ACTIVE.value)
     )
     user = result.scalar_one_or_none()
 
