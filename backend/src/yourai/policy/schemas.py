@@ -291,3 +291,44 @@ class BulkSeedRequest(BaseModel):
     """Request schema for bulk seeding policy definitions."""
 
     definitions: list[CreatePolicyDefinition]
+
+
+# ============================================================================
+# Review History & Trends
+# ============================================================================
+
+
+class CriterionComparison(BaseModel):
+    """Comparison of a single criterion between two reviews."""
+
+    criterion_name: str
+    previous_rating: str  # "green", "amber", "red", "unknown"
+    current_rating: str
+    changed: bool
+
+
+class ComparisonResult(BaseModel):
+    """Result of comparing two reviews."""
+
+    review1_id: UUID
+    review1_date: datetime | None
+    review1_overall_rating: str
+    review2_id: UUID
+    review2_date: datetime | None
+    review2_overall_rating: str
+    criteria_comparisons: list[CriterionComparison] = Field(default_factory=list)
+
+
+class ReviewTrends(BaseModel):
+    """Aggregate compliance trends for admin dashboard."""
+
+    total_reviews: int
+    green_count: int
+    amber_count: int
+    red_count: int
+    green_percentage: float
+    amber_percentage: float
+    red_percentage: float
+    required_policies_reviewed_count: int
+    required_policies_total: int
+    required_policies_coverage_percentage: float
