@@ -41,9 +41,10 @@ async def set_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
     """
     dialect = session.bind.dialect.name if session.bind else ""
     if dialect == "postgresql":
+        # PostgreSQL doesn't allow parameter binding in SET LOCAL
+        # The UUID type ensures the value is safe from SQL injection
         await session.execute(
-            text("SET LOCAL app.current_tenant_id = :tenant_id"),
-            {"tenant_id": str(tenant_id)},
+            text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'")
         )
 
 
