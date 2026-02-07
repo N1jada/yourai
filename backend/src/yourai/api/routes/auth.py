@@ -51,12 +51,15 @@ async def login(
     result = await session.execute(
         select(User)
         .options(selectinload(User.roles).selectinload(Role.permissions))
-        .where(User.email == body.email, User.status == UserStatus.ACTIVE.value)
+        .where(User.email == body.email)
     )
     user = result.scalar_one_or_none()
 
     if user is None:
         raise UnauthorisedError("Invalid email or password.")
+
+    if str(user.status) != UserStatus.ACTIVE.value:
+        raise UnauthorisedError("User account is not active.")
 
     # Set tenant context for RLS
     await set_tenant_context(session, user.tenant_id)
