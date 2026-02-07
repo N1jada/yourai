@@ -171,6 +171,70 @@ class PolicyDefinitionResponse(BaseModel):
 # Policy Reviews
 # ============================================================================
 
+
+class Citation(BaseModel):
+    """Citation reference for legislation or guidance."""
+
+    source_type: str  # "legislation", "guidance", "case_law"
+    act_name: str | None = None
+    document_name: str | None = None
+    section: str | None = None
+    uri: str | None = None
+    excerpt: str | None = None
+    verified: bool = False
+
+
+class CriterionResult(BaseModel):
+    """Result of evaluating a single compliance criterion."""
+
+    criterion_name: str
+    criterion_priority: str  # "high", "medium", "low", "none"
+    rating: str  # "red", "amber", "green"
+    justification: str
+    citations: list[Citation] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class GapItem(BaseModel):
+    """Identified gap in policy coverage."""
+
+    area: str
+    severity: str  # "critical", "important", "advisory"
+    description: str
+    relevant_legislation: list[Citation] = Field(default_factory=list)
+
+
+class Action(BaseModel):
+    """Recommended action for policy improvement."""
+
+    priority: str  # "critical", "important", "advisory"
+    description: str
+    related_criteria: list[str] = Field(default_factory=list)
+    related_legislation: list[Citation] = Field(default_factory=list)
+
+
+class PolicyReviewResult(BaseModel):
+    """Complete policy review result structure."""
+
+    policy_definition_id: UUID
+    policy_definition_name: str
+    overall_rating: str  # "red", "amber", "green"
+    confidence: str  # "high", "medium", "low"
+    legal_evaluation: list[CriterionResult] = Field(default_factory=list)
+    gap_analysis: list[GapItem] = Field(default_factory=list)
+    recommended_actions: list[Action] = Field(default_factory=list)
+    summary: str
+    created_at: datetime
+
+
+class StartReviewRequest(BaseModel):
+    """Request to start a new policy review."""
+
+    document_text: str = Field(..., min_length=100)
+    document_name: str = Field(..., min_length=1, max_length=255)
+    policy_definition_id: UUID | None = None  # None = auto-identify
+
+
 class PolicyReviewResponse(BaseModel):
     """Response schema for policy review."""
 
@@ -180,7 +244,7 @@ class PolicyReviewResponse(BaseModel):
     user_id: UUID
     policy_definition_id: UUID | None
     state: str
-    result: dict | None  # type: ignore[type-arg]
+    result: PolicyReviewResult | None = None
     source: str | None
     citation_verification_result: dict | None  # type: ignore[type-arg]
     version: int
