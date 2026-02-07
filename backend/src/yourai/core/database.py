@@ -25,6 +25,14 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+def get_async_session_maker() -> async_sessionmaker[AsyncSession]:
+    """Returns the async session factory for use outside of FastAPI request context.
+
+    Used by background tasks (e.g., agent invocations) that need their own DB sessions.
+    """
+    return async_session_factory
+
+
 async def set_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
     """Set the RLS tenant context for the current transaction.
 
