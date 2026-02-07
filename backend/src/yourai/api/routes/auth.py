@@ -32,6 +32,14 @@ async def refresh_token(body: dict[str, str]) -> TokenPair:
     return await _auth_service.refresh_token(refresh_token_str)
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    """Get the current authenticated user."""
+    return current_user
+
+
 @router.post("/logout", status_code=204)
 async def logout(
     _user: UserResponse = Depends(get_current_user),
