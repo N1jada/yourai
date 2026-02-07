@@ -13,6 +13,7 @@ from yourai.core.tenant import TenantService
 router = APIRouter(prefix="/api/v1/tenants", tags=["tenants"])
 
 
+@router.get("/me", response_model=TenantConfig)
 @router.get("/current", response_model=TenantConfig)
 async def get_tenant(
     tenant: TenantConfig = Depends(get_current_tenant),
@@ -22,6 +23,7 @@ async def get_tenant(
     return tenant
 
 
+@router.patch("/me", response_model=TenantConfig)
 @router.patch("/current", response_model=TenantConfig)
 async def update_tenant(
     data: UpdateTenant,
