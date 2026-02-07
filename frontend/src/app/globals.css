@@ -1,15 +1,56 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --color-primary: #1a56db;
-  --color-secondary: #6b7280;
-  --color-background: #ffffff;
-  --color-foreground: #111827;
+  /* Default brand colors (tenant-customizable) */
+  --brand-50: 214 100% 97%;
+  --brand-100: 214 95% 93%;
+  --brand-200: 213 97% 87%;
+  --brand-300: 212 96% 78%;
+  --brand-400: 213 94% 68%;
+  --brand-500: 217 91% 60%;
+  --brand-600: 221 83% 53%;
+  --brand-700: 224 76% 48%;
+  --brand-800: 226 71% 40%;
+  --brand-900: 224 64% 33%;
+  --brand-950: 226 57% 21%;
+
+  /* Inter font (loaded from Google Fonts or local) */
+  --font-inter: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Fira Code", "Consolas", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0a0a0a;
-    --color-foreground: #ededed;
+@layer base {
+  * {
+    @apply border-neutral-200;
+  }
+
+  body {
+    @apply bg-white text-neutral-900 antialiased;
+  }
+
+  /* Focus ring for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2;
+  }
+}
+
+@layer components {
+  /* Scrollbar styling (webkit browsers) */
+  .scrollbar-thin::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-400;
   }
 }
