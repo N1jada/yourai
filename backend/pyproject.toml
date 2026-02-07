@@ -64,8 +64,13 @@ ignore = ["B008"]  # Depends() in FastAPI argument defaults is standard pattern
 [tool.ruff.lint.per-file-ignores]
 "src/yourai/core/models.py" = ["TCH003"]  # ORM columns need runtime types
 "src/yourai/knowledge/models.py" = ["TCH003"]  # ORM columns need runtime types
+"src/yourai/policy/models.py" = ["TCH003"]  # ORM columns need runtime types
 "src/yourai/core/schemas.py" = ["TCH001", "TCH003", "UP046"]  # Pydantic needs runtime types
 "src/yourai/knowledge/schemas.py" = ["TCH001", "TCH003", "UP046"]  # Pydantic needs runtime types
+"src/yourai/policy/schemas.py" = ["TCH001", "TCH003", "UP046"]  # Pydantic needs runtime types
+"src/yourai/policy/ontology.py" = ["TCH002"]  # AsyncSession used at runtime
+"src/yourai/policy/type_identifier.py" = ["TCH002", "E501"]  # AsyncAnthropic at runtime, long prompt strings
+"src/yourai/policy/seed_data.py" = ["E501"]  # Long description strings
 "src/yourai/knowledge/lex_rest.py" = ["TCH003"]  # Pydantic models need runtime types
 "src/yourai/api/routes/*.py" = ["TCH001", "TCH002", "TCH003"]  # FastAPI needs runtime types for DI
 
