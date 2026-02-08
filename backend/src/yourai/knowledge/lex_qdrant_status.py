@@ -103,7 +103,13 @@ class LexQdrantStatusClient:
         result: dict[str, Any] = data.get("result", {})
         config = result.get("config", {})
         optimizer_status = result.get("optimizer_status", {})
-        status_str = optimizer_status.get("status", result.get("status", "unknown"))
+        # Qdrant v1.15+ may return optimizer_status as a plain string ("ok")
+        if isinstance(optimizer_status, dict):
+            status_str = optimizer_status.get("status", result.get("status", "unknown"))
+        else:
+            status_str = (
+                str(optimizer_status) if optimizer_status else result.get("status", "unknown")
+            )
 
         return CollectionDetail(
             name=name,

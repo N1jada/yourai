@@ -145,6 +145,29 @@ class TestGetCollectionDetail:
         assert detail.disk_data_size == 2048
         assert detail.ram_data_size == 1024
 
+    async def test_string_optimizer_status(self, client: LexQdrantStatusClient) -> None:
+        """Handles Qdrant v1.15+ string optimizer_status without crashing."""
+        mock_resp = httpx.Response(
+            200,
+            json={
+                "result": {
+                    "points_count": 68,
+                    "vectors_count": 68,
+                    "indexed_vectors_count": 68,
+                    "status": "green",
+                    "optimizer_status": "ok",
+                    "config": {},
+                }
+            },
+            request=httpx.Request("GET", "http://localhost:6333/collections/legislation"),
+        )
+        with patch.object(client._client, "get", new_callable=AsyncMock, return_value=mock_resp):
+            detail = await client.get_collection_detail("legislation")
+
+        assert detail.name == "legislation"
+        assert detail.points_count == 68
+        assert detail.status == "ok"
+
     async def test_not_found(self, client: LexQdrantStatusClient) -> None:
         """Raises on non-existent collection."""
         mock_resp = httpx.Response(404, json={"status": {"error": "not found"}})
