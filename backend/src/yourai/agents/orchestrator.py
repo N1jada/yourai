@@ -187,41 +187,85 @@ class OrchestratorAgent:
         return context
 
     async def _search_legislation(self, query: str, tenant_id: UUID) -> list[object]:
-        """Search legislation via Lex REST API (faster than MCP for one-shot queries)."""
+        """Search legislation via Lex REST API.
+
+        Searches both act-level metadata and section-level text in parallel.
+        Sections provide the actual provision text that Claude needs to give
+        substantive answers; act-level results provide titles for citation.
+        """
         from yourai.knowledge.lex_health import get_lex_health
         from yourai.knowledge.lex_rest import LexRestClient
 
         lex = get_lex_health()
         client = LexRestClient(lex.active_url, timeout=30.0)
         try:
-            result = await client.search_legislation(
-                query, limit=5, include_text=True
+            # Search acts (for titles) and sections (for provision text) in parallel
+            act_result, sections = await asyncio.gather(
+                client.search_legislation(query, limit=3, include_text=True),
+                client.search_legislation_sections(query, size=8, include_text=True),
             )
-            # Convert search results to LegislationSource
+
             from yourai.agents.knowledge_schemas import LegislationSource, VerificationStatus
 
+            # Build act title lookup from act-level results
+            act_titles: dict[str, str] = {}
+            for item in act_result.results:
+                act_id = item.get("id", "")
+                act_titles[act_id] = item.get("title", "Unknown Act")
+
             sources: list[object] = []
-            for item in result.results:
+
+            # Section-level sources (primary — these have the actual provision text)
+            for sec in sections:
+                act_name = act_titles.get(sec.legislation_id, "")
+                if not act_name:
+                    # Fall back to type/year/number if act not in search results
+                    act_name = (
+                        f"{sec.legislation_type.value.upper()} "
+                        f"{sec.legislation_year} c.{sec.legislation_number}"
+                    )
                 sources.append(
                     LegislationSource(
-                        act_name=item.get("title", "Unknown Act"),
-                        year=item.get("year"),
-                        section=None,
-                        content=item.get("text", "") or item.get("description", ""),
-                        uri=item.get("uri", ""),
+                        act_name=act_name,
+                        year=sec.legislation_year,
+                        section=str(sec.number) if sec.number is not None else None,
+                        content=sec.text or sec.title,
+                        uri=sec.uri,
                         score=0.9,
-                        is_historical=item.get("year", 2000) < 1963,
+                        is_historical=sec.legislation_year < 1963,
                         verification_status=VerificationStatus.VERIFIED,
                     )
                 )
+
+            # Add act-level sources for acts not already covered by sections
+            covered_acts = {sec.legislation_id for sec in sections}
+            for item in act_result.results:
+                if item.get("id", "") not in covered_acts:
+                    sources.append(
+                        LegislationSource(
+                            act_name=item.get("title", "Unknown Act"),
+                            year=item.get("year"),
+                            section=None,
+                            content=item.get("text", "") or item.get("description", ""),
+                            uri=item.get("uri", ""),
+                            score=0.85,
+                            is_historical=item.get("year", 2000) < 1963,
+                            verification_status=VerificationStatus.VERIFIED,
+                        )
+                    )
+
             logger.info(
                 "legislation_rest_search_complete",
                 tenant_id=str(tenant_id),
                 sources_found=len(sources),
+                section_sources=len(sections),
+                act_sources=len(act_result.results),
             )
             return sources
         except Exception as exc:
-            logger.warning("legislation_rest_search_failed", error=str(exc), tenant_id=str(tenant_id))
+            logger.warning(
+                "legislation_rest_search_failed", error=str(exc), tenant_id=str(tenant_id)
+            )
             return []
         finally:
             await client.aclose()

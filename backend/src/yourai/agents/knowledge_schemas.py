@@ -190,7 +190,11 @@ class KnowledgeContext(BaseModel):
                 historical = " [HISTORICAL - digitised content]" if src.is_historical else ""
                 lines.append(f"{i}. **{src.format_citation()}**{historical}")
                 lines.append(f"   URI: {src.uri}")
-                lines.append(f"   Content: {src.content[:500]}...\n")
+                # Section text needs more space than act overviews
+                max_len = 2000 if src.section else 500
+                content_preview = src.content[:max_len]
+                suffix = "..." if len(src.content) > max_len else ""
+                lines.append(f"   Content: {content_preview}{suffix}\n")
 
         if self.case_law_sources:
             lines.append("## Case Law\n")
