@@ -29,6 +29,15 @@ import type {
   LegislationDetailResponse,
   HealthCheckResponse,
   ForcePrimaryResponse,
+  PrimaryStatusResponse,
+  TriggerIngestionRequest,
+  IngestionJobResponse,
+  IngestionJobListResponse,
+  IndexedLegislationResponse,
+  RemoveLegislationRequest,
+  RemoveLegislationResponse,
+  SyncIndexResponse,
+  TargetedIngestionRequest,
 } from "@/lib/types/legislation";
 import type {
   LoginRequest,
@@ -396,6 +405,43 @@ export class LegislationAdminApi {
 
   async forcePrimary(): Promise<ForcePrimaryResponse> {
     return this.client.post("/api/v1/admin/legislation/force-primary");
+  }
+
+  async getPrimaryStatus(): Promise<PrimaryStatusResponse> {
+    return this.client.get("/api/v1/admin/legislation/primary-status");
+  }
+
+  async triggerIngestion(params: TriggerIngestionRequest): Promise<IngestionJobResponse> {
+    return this.client.post("/api/v1/admin/legislation/ingestion", params);
+  }
+
+  async getIngestionJobs(limit?: number, offset?: number): Promise<IngestionJobListResponse> {
+    return this.client.get("/api/v1/admin/legislation/ingestion", { limit, offset });
+  }
+
+  async getIngestionJob(jobId: string): Promise<IngestionJobResponse> {
+    return this.client.get(`/api/v1/admin/legislation/ingestion/${jobId}`);
+  }
+
+  async getIndexed(params?: {
+    type_filter?: string;
+    year_filter?: number;
+    limit?: number;
+    offset_id?: string;
+  }): Promise<IndexedLegislationResponse> {
+    return this.client.get("/api/v1/admin/legislation/indexed", params);
+  }
+
+  async syncIndex(): Promise<SyncIndexResponse> {
+    return this.client.post("/api/v1/admin/legislation/indexed/sync");
+  }
+
+  async removeIndexed(data: RemoveLegislationRequest): Promise<RemoveLegislationResponse> {
+    return this.client.post("/api/v1/admin/legislation/indexed/remove", data);
+  }
+
+  async triggerTargetedIngestion(data: TargetedIngestionRequest): Promise<IngestionJobResponse> {
+    return this.client.post("/api/v1/admin/legislation/ingest-targeted", data);
   }
 }
 

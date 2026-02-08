@@ -250,6 +250,33 @@ class CreditUsageWarningEvent(BaseModel):
     credits_remaining: float
 
 
+# -- Lex Ingestion events --
+
+
+class IngestionStartedEvent(BaseModel):
+    event_type: Literal["ingestion_started"] = "ingestion_started"
+    job_id: str
+    mode: str
+
+
+class IngestionProgressEvent(BaseModel):
+    event_type: Literal["ingestion_progress"] = "ingestion_progress"
+    job_id: str
+    message: str
+
+
+class IngestionCompletedEvent(BaseModel):
+    event_type: Literal["ingestion_completed"] = "ingestion_completed"
+    job_id: str
+    result: dict[str, object]
+
+
+class IngestionFailedEvent(BaseModel):
+    event_type: Literal["ingestion_failed"] = "ingestion_failed"
+    job_id: str
+    error: str
+
+
 # ---------------------------------------------------------------------------
 # Union types
 # ---------------------------------------------------------------------------
@@ -284,6 +311,10 @@ UserPushEvent = (
     | PolicyReviewCreatedEvent
     | RegulatoryChangeAlertEvent
     | CreditUsageWarningEvent
+    | IngestionStartedEvent
+    | IngestionProgressEvent
+    | IngestionCompletedEvent
+    | IngestionFailedEvent
 )
 
 AnySSEEvent = StreamEvent | UserPushEvent
