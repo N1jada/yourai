@@ -25,11 +25,8 @@ if TYPE_CHECKING:
 from yourai.agents.knowledge_schemas import KnowledgeContext
 from yourai.agents.model_routing import ModelRouter
 from yourai.agents.prompts.base import BASE_SYSTEM_PROMPT
-from yourai.agents.workers.caselaw import CaseLawWorker
-from yourai.agents.workers.legislation import LegislationWorker
 from yourai.agents.workers.policy import PolicyWorker
 from yourai.api.sse.events import ContentDeltaEvent
-from yourai.core.config import settings
 
 logger = structlog.get_logger()
 
@@ -190,22 +187,53 @@ class OrchestratorAgent:
         return context
 
     async def _search_legislation(self, query: str, tenant_id: UUID) -> list[object]:
-        """Search legislation via Lex MCP (with connection management)."""
-        worker = LegislationWorker(settings.lex_base_url + "/mcp")
+        """Search legislation via Lex REST API (faster than MCP for one-shot queries)."""
+        from yourai.knowledge.lex_health import get_lex_health
+        from yourai.knowledge.lex_rest import LexRestClient
+
+        lex = get_lex_health()
+        client = LexRestClient(lex.active_url, timeout=30.0)
         try:
-            await worker.connect()
-            return await worker.search(query, tenant_id, limit=5)  # type: ignore[return-value]
+            result = await client.search_legislation(
+                query, limit=5, include_text=True
+            )
+            # Convert search results to LegislationSource
+            from yourai.agents.knowledge_schemas import LegislationSource, VerificationStatus
+
+            sources: list[object] = []
+            for item in result.results:
+                sources.append(
+                    LegislationSource(
+                        act_name=item.get("title", "Unknown Act"),
+                        year=item.get("year"),
+                        section=None,
+                        content=item.get("text", "") or item.get("description", ""),
+                        uri=item.get("uri", ""),
+                        score=0.9,
+                        is_historical=item.get("year", 2000) < 1963,
+                        verification_status=VerificationStatus.VERIFIED,
+                    )
+                )
+            logger.info(
+                "legislation_rest_search_complete",
+                tenant_id=str(tenant_id),
+                sources_found=len(sources),
+            )
+            return sources
+        except Exception as exc:
+            logger.warning("legislation_rest_search_failed", error=str(exc), tenant_id=str(tenant_id))
+            return []
         finally:
-            await worker.disconnect()
+            await client.aclose()
 
     async def _search_caselaw(self, query: str, tenant_id: UUID) -> list[object]:
-        """Search case law via Lex MCP (with connection management)."""
-        worker = CaseLawWorker(settings.lex_base_url + "/mcp")
-        try:
-            await worker.connect()
-            return await worker.search(query, tenant_id, limit=3)  # type: ignore[return-value]
-        finally:
-            await worker.disconnect()
+        """Case law search — Lex does not currently expose case law tools."""
+        logger.info(
+            "caselaw_search_skipped",
+            tenant_id=str(tenant_id),
+            msg="Lex instance does not expose case law search tools",
+        )
+        return []
 
     def _assemble_system_prompt(
         self,
@@ -268,7 +296,11 @@ class OrchestratorAgent:
         for msg in history[-20:]:
             messages.append({"role": msg.role, "content": msg.content})
 
-        # Add current user query
-        messages.append({"role": "user", "content": current_query})
+        # Only append current query if history doesn't already end with a user message
+        # (the route creates the user message before invoking the agent, so history
+        # typically includes it; appending again would create consecutive user messages
+        # which the Anthropic API rejects)
+        if not messages or messages[-1]["role"] != "user":
+            messages.append({"role": "user", "content": current_query})
 
         return messages

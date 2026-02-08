@@ -19,6 +19,16 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
+    # Run Lex health check on startup to determine primary vs fallback
+    try:
+        from yourai.knowledge.lex_health import get_lex_health
+
+        lex = get_lex_health()
+        await lex.check_health()
+        logger.info("lex_startup_check", active_url=lex.active_url, status=lex.status)
+    except Exception as exc:
+        logger.warning("lex_startup_check_failed", error=str(exc))
+
     yield
     await close_redis()
 
@@ -62,6 +72,7 @@ def create_app() -> FastAPI:
     from yourai.api.routes.guardrails import router as guardrails_router
     from yourai.api.routes.health import router as health_router
     from yourai.api.routes.knowledge_bases import router as knowledge_bases_router
+    from yourai.api.routes.legislation_admin import router as legislation_admin_router
     from yourai.api.routes.personas import router as personas_router
     from yourai.api.routes.policy_ontology import router as policy_ontology_router
     from yourai.api.routes.policy_reviews import router as policy_reviews_router
@@ -89,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(templates_router)
     app.include_router(guardrails_router)
     app.include_router(activity_logs_router)
+    app.include_router(legislation_admin_router)
     app.include_router(profile_router)
     app.include_router(health_router)
 

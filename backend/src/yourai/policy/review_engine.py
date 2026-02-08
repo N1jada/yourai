@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import asyncio
 from typing import TYPE_CHECKING
 
 import structlog
@@ -255,7 +254,7 @@ class PolicyReviewEngine:
             )
 
             # Step 9: Save result and update state
-            review.result = review_result.model_dump()
+            review.result = review_result.model_dump(mode="json")
             review.state = PolicyReviewState.COMPLETE
             await self._session.commit()
 

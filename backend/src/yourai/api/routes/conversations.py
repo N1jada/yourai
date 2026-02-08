@@ -164,7 +164,9 @@ async def send_message(
     # The task gets a new DB session to avoid transaction conflicts.
     async def run_agent() -> None:
         """Background task to run agent invocation with its own DB session."""
-        # Import here to avoid circular dependency
+        # Ensure all model modules are loaded so SQLAlchemy can resolve FK references
+        import yourai.core.models  # noqa: F401
+        import yourai.knowledge.models  # noqa: F401
         from yourai.core.database import get_async_session_maker
 
         session_maker = get_async_session_maker()
@@ -183,9 +185,16 @@ async def send_message(
                     data.persona_id,
                 )
             except Exception:
-                # Errors are already logged in AgentEngine.invoke()
-                # We don't re-raise here to avoid breaking the background task
-                pass
+                # AgentEngine.invoke() already logs the error and rolls back.
+                # Log here too so background task failures are visible.
+                import structlog
+
+                structlog.get_logger().error(
+                    "background_agent_task_failed",
+                    conversation_id=str(conversation_id),
+                    tenant_id=str(tenant.id),
+                    user_id=str(user.id),
+                )
 
     asyncio.create_task(run_agent())
 

@@ -178,17 +178,12 @@ class TestCitationVerificationAgent:
         assert result.error_message is not None
 
     @pytest.mark.asyncio
-    async def test_verify_valid_case_law(self) -> None:
-        """Test verifying a valid case law citation."""
+    async def test_verify_case_law_returns_unverified(self) -> None:
+        """Case law verification returns unverified (Lex has no case law tools)."""
         from uuid import uuid4
 
         agent = CitationVerificationAgent("http://mock-lex-url/mcp")
         agent._client = AsyncMock()
-
-        # Mock Lex API success
-        mock_result = MagicMock()
-        mock_result.content = [MagicMock(text='{"found": true, "verified": true}')]
-        agent._client.call_tool.return_value = mock_result
 
         from yourai.agents.verification import ExtractedCitation
 
@@ -201,8 +196,9 @@ class TestCitationVerificationAgent:
 
         result = await agent._verify_caselaw(citation, uuid4())
 
-        assert result.verification_status == VerificationStatus.VERIFIED.value
-        assert result.confidence_score == 1.0
+        assert result.verification_status == VerificationStatus.UNVERIFIED.value
+        assert result.confidence_score == 0.0
+        assert result.error_message == "Case law verification not available"
 
     @pytest.mark.asyncio
     async def test_verify_lex_error_handling(self) -> None:

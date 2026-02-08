@@ -75,8 +75,13 @@ class RouterAgent:
                 if hasattr(block, "text"):
                     response_text += block.text
 
-            # Parse JSON response
-            classification = json.loads(response_text)
+            # Parse JSON response (strip markdown code fences if present)
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.split("\n")
+                lines = [l for l in lines if not l.strip().startswith("```")]
+                cleaned = "\n".join(lines)
+            classification = json.loads(cleaned)
 
             decision = RouterDecision(
                 intent=classification["intent"],

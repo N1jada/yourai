@@ -268,8 +268,9 @@ async def test_sse_frame_format(fake_redis, tenant_id) -> None:
     assert len(collected) >= 1
     frame = collected[0]
 
-    # SSE frame should contain id:, event:, data: fields
+    # SSE frame should contain id: and data: fields (event: line intentionally
+    # omitted so that EventSource.onmessage fires in the browser)
     assert "id: " in frame
-    assert "event: content_delta" in frame
     assert "data: " in frame
+    assert '"event_type":"content_delta"' in frame or '"event_type": "content_delta"' in frame
     assert '"text":"hello"' in frame or '"text": "hello"' in frame

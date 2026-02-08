@@ -63,10 +63,17 @@ export class SSEClient {
     this.eventSource = new EventSource(url);
 
     // Handle all event types
+    // Backend sends raw Pydantic events (e.g. {"event_type":"content_delta","text":"..."})
+    // We wrap them in the SSEEventEnvelope format the frontend expects.
     this.eventSource.onmessage = (event) => {
       try {
-        const parsedEvent: SSEEventEnvelope = JSON.parse(event.data);
-        onEvent(parsedEvent);
+        const rawEvent = JSON.parse(event.data);
+        const envelope: SSEEventEnvelope = {
+          event: rawEvent.event_type,
+          data: rawEvent,
+          timestamp: new Date().toISOString(),
+        };
+        onEvent(envelope);
       } catch (error) {
         console.error("Failed to parse SSE event:", error);
       }

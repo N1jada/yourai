@@ -71,10 +71,27 @@ class CaseLawWorker:
         )
 
         try:
-            # Call Lex MCP search_cases or similar tool
-            # Tool name may vary - common names: search_cases, search_caselaw, search_judgments
+            # Check if Lex has case law tools available (not all instances do)
+            available_tools = await self._client.list_tools()
+            tool_names = {t.name for t in available_tools}
+
+            # Try known case law tool names in order of preference
+            caselaw_tool = None
+            for name in ("search_cases", "search_caselaw", "search_judgments"):
+                if name in tool_names:
+                    caselaw_tool = name
+                    break
+
+            if caselaw_tool is None:
+                logger.info(
+                    "caselaw_worker_no_tools",
+                    tenant_id=str(tenant_id),
+                    msg="Lex instance does not expose case law search tools",
+                )
+                return []
+
             result = await self._client.call_tool(
-                "search_cases",
+                caselaw_tool,
                 {"query": query, "limit": limit},
             )
 

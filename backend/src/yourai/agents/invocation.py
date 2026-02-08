@@ -25,14 +25,13 @@ if TYPE_CHECKING:
 
 from yourai.agents.confidence import calculate_confidence
 from yourai.agents.enums import AgentInvocationMode, MessageRole, MessageState
-from yourai.agents.messages import MessageService
 from yourai.agents.models import AgentInvocation, Conversation, Message, Persona
 from yourai.agents.orchestrator import OrchestratorAgent
 from yourai.agents.router import RouterAgent
+from yourai.agents.schemas import CitationVerificationResultSchema
 from yourai.agents.semantic_cache import SemanticCacheService
 from yourai.agents.streaming import emit_agent_event
 from yourai.agents.title_generation import TitleGenerationAgent
-from yourai.agents.verification import CitationVerificationAgent
 from yourai.api.sse.channels import SSEChannel
 from yourai.api.sse.events import (
     AgentCompleteEvent,
@@ -43,7 +42,6 @@ from yourai.api.sse.events import (
     MessageCompleteEvent,
     VerificationResultEvent,
 )
-from yourai.core.config import settings
 
 logger = structlog.get_logger()
 
@@ -115,17 +113,7 @@ class AgentEngine:
         channel = SSEChannel.for_conversation(tenant_id, conversation_id)
 
         try:
-            # 1. Create user message
-            msg_service = MessageService(self._session)
-            await msg_service.create_message(
-                conversation_id,
-                tenant_id,
-                # We create the message via service, but SendMessage schema expects content
-                # For now, we'll create the Message ORM directly to avoid circular import
-                type("SendMessage", (), {"content": message, "attachments": None})(),
-            )
-
-            # 2. Load conversation history
+            # 1. Load conversation history (user message already created by the route)
             history = await self._load_history(conversation_id, tenant_id)
 
             # 3. Load persona
@@ -208,26 +196,41 @@ class AgentEngine:
             await self._session.flush()
 
             # 12a. Citation verification phase (Session 3)
-            await emit_agent_event(
-                self._redis,
-                channel,
-                AgentStartEvent(
-                    agent_name="verification", task_description="Verifying citations..."
-                ),
+            # Gracefully degrade when Lex is unavailable
+            verification_result = CitationVerificationResultSchema(
+                citations_checked=0,
+                citations_verified=0,
+                citations_unverified=0,
+                citations_removed=0,
+                verified_citations=[],
+                issues=[],
             )
-
-            verification_start = time.time()
-            verification_agent = CitationVerificationAgent(settings.lex_base_url + "/mcp")
-
             try:
-                await verification_agent.connect()
-                verification_result = await verification_agent.verify_response(
+                await emit_agent_event(
+                    self._redis,
+                    channel,
+                    AgentStartEvent(
+                        agent_name="verification", task_description="Verifying citations..."
+                    ),
+                )
+
+                verification_start = time.time()
+
+                # Use REST-based verification (faster than MCP for one-shot)
+                verification_result = await self._verify_citations_rest(
                     assistant_content, tenant_id
                 )
-            finally:
-                await verification_agent.disconnect()
 
-            verification_duration = int((time.time() - verification_start) * 1000)
+                verification_duration = int((time.time() - verification_start) * 1000)
+            except Exception as lex_exc:
+                logger.warning(
+                    "citation_verification_skipped",
+                    tenant_id=str(tenant_id),
+                    conversation_id=str(conversation_id),
+                    error=str(lex_exc),
+                    msg="Lex MCP unavailable — skipping citation verification",
+                )
+                verification_duration = 0
 
             # Store verification result in message
             assistant_msg.verification_result = verification_result.model_dump()
@@ -251,26 +254,32 @@ class AgentEngine:
             )
 
             # 12b. Quality assurance review (Session 4, testing mode)
-            from yourai.agents.qa_agent import QualityAssuranceAgent
+            try:
+                from yourai.agents.qa_agent import QualityAssuranceAgent
 
-            qa_agent = QualityAssuranceAgent()
-            qa_result = await qa_agent.review_response(
-                response=assistant_content,
-                confidence_level=None,  # type: ignore[arg-type]  # Scored next
-                verification_result=verification_result.model_dump(),
-                tenant_id=tenant_id,
-            )
+                qa_agent = QualityAssuranceAgent()
+                qa_result = await qa_agent.review_response(
+                    response=assistant_content,
+                    confidence_level=None,  # type: ignore[arg-type]  # Scored next
+                    verification_result=verification_result.model_dump(),
+                    tenant_id=tenant_id,
+                )
 
-            # In testing mode, QA always approves but logs findings
-            logger.info(
-                "qa_review_complete",
-                tenant_id=str(tenant_id),
-                conversation_id=str(conversation_id),
-                approved=qa_result.approved,
-                issues_count=len(qa_result.issues),
-                completeness_score=qa_result.completeness_score,
-                clarity_score=qa_result.clarity_score,
-            )
+                logger.info(
+                    "qa_review_complete",
+                    tenant_id=str(tenant_id),
+                    conversation_id=str(conversation_id),
+                    approved=qa_result.approved,
+                    issues_count=len(qa_result.issues),
+                    completeness_score=qa_result.completeness_score,
+                    clarity_score=qa_result.clarity_score,
+                )
+            except Exception as qa_exc:
+                logger.warning(
+                    "qa_review_skipped",
+                    tenant_id=str(tenant_id),
+                    error=str(qa_exc),
+                )
 
             # 12c. Confidence scoring (Session 4)
             # Infer whether sources were used based on router decision
@@ -417,6 +426,102 @@ class AgentEngine:
             "invocation_cancelled",
             invocation_id=str(invocation_id),
             tenant_id=str(tenant_id),
+        )
+
+    async def _verify_citations_rest(
+        self, response_text: str, tenant_id: UUID
+    ) -> CitationVerificationResultSchema:
+        """Verify citations using Lex REST API (faster than MCP).
+
+        Extracts citations from the response, then checks each legislation
+        citation against the Lex REST search endpoint.
+        """
+        from yourai.agents.schemas import VerifiedCitationSchema
+        from yourai.agents.verification import CitationExtractor
+        from yourai.api.sse.enums import VerificationStatus
+        from yourai.knowledge.lex_health import get_lex_health
+        from yourai.knowledge.lex_rest import LexRestClient
+
+        extracted = CitationExtractor.extract_all(response_text)
+        if not extracted:
+            return CitationVerificationResultSchema(
+                citations_checked=0, citations_verified=0, citations_unverified=0,
+                citations_removed=0, verified_citations=[], issues=[],
+            )
+
+        lex = get_lex_health()
+        client = LexRestClient(lex.active_url, timeout=15.0)
+        verified_citations: list[VerifiedCitationSchema] = []
+        issues: list[str] = []
+
+        # Deduplicate by act_name to avoid repeated API calls for the same Act
+        act_name_cache: dict[str, bool] = {}
+
+        try:
+            for citation in extracted:
+                if citation.citation_type == "legislation" and citation.act_name:
+                    act_key = citation.act_name.lower().strip()
+
+                    # Check cache first
+                    if act_key in act_name_cache:
+                        found = act_name_cache[act_key]
+                    else:
+                        try:
+                            result = await client.search_legislation(
+                                citation.act_name, limit=1, include_text=False
+                            )
+                            found = result.total > 0
+                        except Exception as exc:
+                            logger.warning(
+                                "citation_verification_error",
+                                citation=citation.text,
+                                error=str(exc),
+                            )
+                            found = False
+                            issues.append(f"{citation.text}: {exc}")
+                        act_name_cache[act_key] = found
+
+                    if found:
+                        verified_citations.append(VerifiedCitationSchema(
+                            citation_text=citation.text,
+                            citation_type="legislation",
+                            verification_status=VerificationStatus.VERIFIED.value,
+                            confidence_score=1.0,
+                        ))
+                    else:
+                        verified_citations.append(VerifiedCitationSchema(
+                            citation_text=citation.text,
+                            citation_type="legislation",
+                            verification_status=VerificationStatus.UNVERIFIED.value,
+                            confidence_score=0.0,
+                            error_message="Legislation not found in Lex database",
+                        ))
+                        if f"{citation.text}: not found" not in str(issues):
+                            issues.append(f"{citation.text}: not found in Lex database")
+                else:
+                    # Non-legislation citations (case law, policy) — skip
+                    verified_citations.append(VerifiedCitationSchema(
+                        citation_text=citation.text,
+                        citation_type=citation.citation_type,
+                        verification_status=VerificationStatus.UNVERIFIED.value,
+                        confidence_score=0.0,
+                        error_message=f"{citation.citation_type} verification not available",
+                    ))
+        finally:
+            await client.aclose()
+
+        checked = len(verified_citations)
+        verified_count = sum(
+            1 for v in verified_citations if v.verification_status == VerificationStatus.VERIFIED.value
+        )
+
+        return CitationVerificationResultSchema(
+            citations_checked=checked,
+            citations_verified=verified_count,
+            citations_unverified=checked - verified_count,
+            citations_removed=0,
+            verified_citations=verified_citations,
+            issues=issues,
         )
 
     async def _load_history(self, conversation_id: UUID, tenant_id: UUID) -> list[Message]:

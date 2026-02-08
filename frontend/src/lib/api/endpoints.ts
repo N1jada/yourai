@@ -23,6 +23,14 @@ import type { PersonaResponse } from "@/lib/types/personas";
 import type { GuardrailResponse } from "@/lib/types/guardrails";
 import type { HealthResponse } from "@/lib/types/health";
 import type {
+  LexOverviewResponse,
+  LegislationSearchParams,
+  LegislationSearchResponse,
+  LegislationDetailResponse,
+  HealthCheckResponse,
+  ForcePrimaryResponse,
+} from "@/lib/types/legislation";
+import type {
   LoginRequest,
   CreateConversation,
   UpdateConversation,
@@ -364,6 +372,34 @@ export class GuardrailsApi {
 }
 
 // ---------------------------------------------------------------------------
+// Legislation Admin
+// ---------------------------------------------------------------------------
+
+export class LegislationAdminApi {
+  constructor(private client: ApiClient) {}
+
+  async getOverview(): Promise<LexOverviewResponse> {
+    return this.client.get("/api/v1/admin/legislation/overview");
+  }
+
+  async search(params: LegislationSearchParams): Promise<LegislationSearchResponse> {
+    return this.client.post("/api/v1/admin/legislation/search", params);
+  }
+
+  async getDetail(type: string, year: number, number: number): Promise<LegislationDetailResponse> {
+    return this.client.get(`/api/v1/admin/legislation/detail/${type}/${year}/${number}`);
+  }
+
+  async checkHealth(): Promise<HealthCheckResponse> {
+    return this.client.post("/api/v1/admin/legislation/health-check");
+  }
+
+  async forcePrimary(): Promise<ForcePrimaryResponse> {
+    return this.client.post("/api/v1/admin/legislation/force-primary");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Activity Logs (Admin)
 // ---------------------------------------------------------------------------
 
@@ -464,6 +500,7 @@ export class Api {
   public roles: RolesApi;
   public permissions: PermissionsApi;
   public guardrails: GuardrailsApi;
+  public legislation: LegislationAdminApi;
   public activityLogs: ActivityLogsApi;
   public tenant: TenantApi;
   public profile: ProfileApi;
@@ -482,6 +519,7 @@ export class Api {
     this.roles = new RolesApi(client);
     this.permissions = new PermissionsApi(client);
     this.guardrails = new GuardrailsApi(client);
+    this.legislation = new LegislationAdminApi(client);
     this.activityLogs = new ActivityLogsApi(client);
     this.tenant = new TenantApi(client);
     this.profile = new ProfileApi(client);

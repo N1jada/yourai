@@ -70,10 +70,10 @@ class LegislationWorker:
         )
 
         try:
-            # Call Lex MCP search_legislation tool
+            # Call Lex MCP search_for_legislation_sections tool
             result = await self._client.call_tool(
-                "search_legislation",
-                {"query": query, "limit": limit},
+                "search_for_legislation_sections",
+                {"query": query, "size": limit, "include_text": True},
             )
 
             # Parse MCP result into LegislationSource objects
@@ -123,8 +123,13 @@ class LegislationWorker:
                 # Parse the JSON content from the text block
                 data = json.loads(block.text) if isinstance(block.text, str) else block.text
 
-                # Handle both single result and array of results
-                results = data if isinstance(data, list) else [data]
+                # Handle Lex API envelope {"results": [...]} or raw array/object
+                if isinstance(data, dict) and "results" in data:
+                    results = data["results"]
+                elif isinstance(data, list):
+                    results = data
+                else:
+                    results = [data]
 
                 for item in results:
                     source = self._parse_legislation_item(item)
@@ -144,24 +149,43 @@ class LegislationWorker:
     def _parse_legislation_item(self, item: dict[str, Any]) -> LegislationSource | None:
         """Parse a single legislation search result item.
 
-        Expected format from Lex MCP:
+        Handles actual Lex API response format:
         {
-            "title": "Housing Act 1985",
-            "section": "8",
-            "subsection": "1",
-            "content": "...",
-            "uri": "https://...",
-            "year": 1985,
-            "score": 0.95
+            "title": "Immigration Act 2014",
+            "description": "...",
+            "uri": "http://www.legislation.gov.uk/ukpga/2014/22/made",
+            "year": 2014,
+            "number": 2928,
+            "type": "ukpga",
+            "category": "primary",
+            "sections": [{"number": "42", "provision_type": "section", ...}],
+            "text": "..."
         }
         """
         try:
             act_name = item.get("title", item.get("act_name", "Unknown Act"))
             year = item.get("year")
+
+            # Lex nests sections; extract first section if present
+            sections = item.get("sections", [])
             section = item.get("section")
             subsection = item.get("subsection")
-            content = item.get("content", item.get("text", ""))
+            if not section and sections:
+                first_sec = sections[0] if isinstance(sections, list) else None
+                if first_sec and isinstance(first_sec, dict):
+                    section = first_sec.get("number")
+
+            # Content may be in text, content, or description fields
+            content = item.get("text", "") or item.get("content", "") or item.get("description", "")
+            # Also check section-level text
+            if not content and sections and isinstance(sections, list):
+                for sec in sections:
+                    if isinstance(sec, dict) and sec.get("text"):
+                        content = sec["text"]
+                        break
+
             uri = item.get("uri", "")
+            # Score may be at top level or in a section
             score = float(item.get("score", 0.5))
 
             # Determine if historical (pre-1963)

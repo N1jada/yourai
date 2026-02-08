@@ -42,7 +42,7 @@ class TestHealthCheck:
     async def test_healthy_primary(self, manager: LexHealthManager) -> None:
         """Successful health check keeps primary active."""
         with patch.object(LexRestClient, "health_check", new_callable=AsyncMock) as mock_hc:
-            mock_hc.return_value = {"status": "healthy"}
+            mock_hc.return_value = {"status": "healthy", "collections": 3}
             with patch.object(LexRestClient, "aclose", new_callable=AsyncMock):
                 result = await manager.check_health()
 
@@ -93,7 +93,7 @@ class TestHealthCheck:
 
         # Then: primary recovers
         with patch.object(LexRestClient, "health_check", new_callable=AsyncMock) as mock_hc:
-            mock_hc.return_value = {"status": "healthy"}
+            mock_hc.return_value = {"status": "healthy", "collections": 3}
             with patch.object(LexRestClient, "aclose", new_callable=AsyncMock):
                 result = await manager.check_health()
 
@@ -118,7 +118,7 @@ class TestHealthCheck:
 
             # Then success
             with patch.object(LexRestClient, "health_check", new_callable=AsyncMock) as mock_hc:
-                mock_hc.return_value = {"status": "ok"}
+                mock_hc.return_value = {"status": "ok", "collections": 5}
                 await manager.check_health()
 
         assert not manager.is_using_fallback

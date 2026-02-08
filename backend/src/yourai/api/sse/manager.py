@@ -28,8 +28,14 @@ logger = structlog.get_logger()
 
 
 def _format_sse(event_id: str, event_type: str, data: str) -> str:
-    """Format a single SSE frame."""
-    return f"id: {event_id}\nevent: {event_type}\ndata: {data}\n\n"
+    """Format a single SSE frame.
+
+    Note: We intentionally omit the ``event:`` line so that all events are
+    dispatched to the browser's ``EventSource.onmessage`` handler.  The
+    event type is already inside the JSON payload (``event_type`` field),
+    which the frontend uses for routing.
+    """
+    return f"id: {event_id}\ndata: {data}\n\n"
 
 
 async def event_stream(

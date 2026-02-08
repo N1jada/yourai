@@ -135,8 +135,10 @@ async def test_review_state_error_on_invalid_policy_type(
         )
 
     # Verify review is in ERROR state
+    from sqlalchemy import text
+
     reviews = await test_session.execute(
-        f"SELECT * FROM policy_reviews WHERE tenant_id = '{sample_tenant.id}'"
+        text(f"SELECT * FROM policy_reviews WHERE tenant_id = '{sample_tenant.id}'")
     )
     # Note: In real implementation, we'd query the review to verify ERROR state
 

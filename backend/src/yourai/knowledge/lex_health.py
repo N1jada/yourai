@@ -67,15 +67,27 @@ class LexHealthManager:
     async def check_health(self) -> bool:
         """Ping the **primary** endpoint's ``/healthcheck``.
 
-        * On success: reset failure counter and switch back to primary.
+        * On success with data: reset failure counter and switch back to primary.
+        * On success but no data (0 collections): treat as failure → use fallback.
         * On failure: increment counter; switch to fallback if threshold met.
 
-        Returns ``True`` if the primary is healthy.
+        Returns ``True`` if the primary is healthy **and has data**.
         """
         client = LexRestClient(self._primary_url, timeout=10.0)
         try:
-            await client.health_check()
-            # Primary is back / still healthy
+            result = await client.health_check()
+
+            # Check if the instance actually has ingested data
+            collections = result.get("collections", 0)
+            if collections == 0:
+                self._log.warning(
+                    "lex_health_no_data",
+                    msg="Primary Lex instance healthy but has 0 collections — using fallback",
+                )
+                self._using_fallback = True
+                return False
+
+            # Primary is back / still healthy with data
             if self._using_fallback:
                 self._log.info("lex_health_primary_recovered")
             self._consecutive_failures = 0
@@ -116,3 +128,26 @@ class LexHealthManager:
         self._using_fallback = False
         self._consecutive_failures = 0
         self._log.info("lex_health_forced_primary")
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton
+# ---------------------------------------------------------------------------
+
+_lex_health: LexHealthManager | None = None
+
+
+def get_lex_health() -> LexHealthManager:
+    """Return the shared :class:`LexHealthManager` singleton.
+
+    Lazily created from ``settings.lex_base_url`` / ``settings.lex_public_fallback_url``.
+    """
+    global _lex_health  # noqa: PLW0603
+    if _lex_health is None:
+        from yourai.core.config import settings
+
+        _lex_health = LexHealthManager(
+            primary_url=settings.lex_base_url,
+            fallback_url=settings.lex_public_fallback_url,
+        )
+    return _lex_health

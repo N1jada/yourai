@@ -324,14 +324,14 @@ class CitationVerificationAgent:
             VerifiedCitation with verification status
         """
         try:
-            # Call Lex MCP to verify the legislation exists
-            # Tool name: verify_legislation or get_legislation
+            # Use search_for_legislation_acts to verify the legislation exists
+            # This searches by act name and returns matching legislation
             result = await self._client.call_tool(  # type: ignore[union-attr]
-                "verify_legislation",
+                "search_for_legislation_acts",
                 {
-                    "act_name": citation.act_name,
-                    "section": citation.section,
-                    "subsection": citation.subsection,
+                    "query": citation.act_name or citation.text,
+                    "limit": 1,
+                    "include_text": False,
                 },
             )
 
@@ -396,30 +396,21 @@ class CitationVerificationAgent:
             VerifiedCitation with verification status
         """
         try:
-            # Call Lex MCP to verify the case exists
-            result = await self._client.call_tool(  # type: ignore[union-attr]
-                "verify_case",
-                {
-                    "case_name": citation.case_name,
-                    "neutral_citation": citation.neutral_citation,
-                },
+            # Lex does not currently expose case law search tools.
+            # Return unverified rather than calling a non-existent tool.
+            logger.info(
+                "caselaw_verification_skipped",
+                tenant_id=str(tenant_id),
+                citation=citation.text,
+                msg="Case law verification not available in current Lex instance",
             )
-
-            if self._is_verification_successful(result):
-                return VerifiedCitationSchema(
-                    citation_text=citation.text,
-                    citation_type="case_law",
-                    verification_status=VerificationStatus.VERIFIED.value,
-                    confidence_score=1.0,
-                )
-            else:
-                return VerifiedCitationSchema(
-                    citation_text=citation.text,
-                    citation_type="case_law",
-                    verification_status=VerificationStatus.REMOVED.value,
-                    confidence_score=0.0,
-                    error_message="Case not found",
-                )
+            return VerifiedCitationSchema(
+                citation_text=citation.text,
+                citation_type="case_law",
+                verification_status=VerificationStatus.UNVERIFIED.value,
+                confidence_score=0.0,
+                error_message="Case law verification not available",
+            )
 
         except LexError as exc:
             logger.warning(
@@ -492,17 +483,35 @@ class CitationVerificationAgent:
         Returns:
             True if citation was verified, False otherwise
         """
-        # Check if result has content with success indicator
+        import json as _json
+
         for block in result.content:
             if hasattr(block, "text"):
-                text = block.text.lower() if isinstance(block.text, str) else ""
-                # Lex API returns {"verified": true} or similar
-                if "verified" in text and "true" in text:
+                text = block.text if isinstance(block.text, str) else ""
+                text_lower = text.lower()
+
+                # Legacy format: {"verified": true} or {"found": true}
+                if "verified" in text_lower and "true" in text_lower:
                     return True
-                if "found" in text and "true" in text:
+                if "found" in text_lower and "true" in text_lower:
                     return True
-                if "exists" in text and "true" in text:
+                if "exists" in text_lower and "true" in text_lower:
                     return True
+
+                # Lex search result format: {"results": [...], "total": N}
+                try:
+                    data = _json.loads(text)
+                    if isinstance(data, dict):
+                        total = data.get("total", 0)
+                        if total and int(total) > 0:
+                            return True
+                        results = data.get("results", [])
+                        if results:
+                            return True
+                    elif isinstance(data, list) and len(data) > 0:
+                        return True
+                except (ValueError, TypeError):
+                    pass
 
         # If we got here, verification failed
         return False
