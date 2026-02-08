@@ -192,6 +192,10 @@ class OrchestratorAgent:
         Searches both act-level metadata and section-level text in parallel.
         Sections provide the actual provision text that Claude needs to give
         substantive answers; act-level results provide titles for citation.
+
+        After the initial search, fetches additional sections from the most
+        relevant acts so Claude has fuller coverage of each act rather than
+        scattered fragments across many acts.
         """
         from yourai.knowledge.lex_health import get_lex_health
         from yourai.knowledge.lex_rest import LexRestClient
@@ -201,8 +205,8 @@ class OrchestratorAgent:
         try:
             # Search acts (for titles) and sections (for provision text) in parallel
             act_result, sections = await asyncio.gather(
-                client.search_legislation(query, limit=3, include_text=True),
-                client.search_legislation_sections(query, size=8, include_text=True),
+                client.search_legislation(query, limit=5, include_text=True),
+                client.search_legislation_sections(query, size=15, include_text=True),
             )
 
             from yourai.agents.knowledge_schemas import LegislationSource, VerificationStatus
@@ -213,13 +217,39 @@ class OrchestratorAgent:
                 act_id = item.get("id", "")
                 act_titles[act_id] = item.get("title", "Unknown Act")
 
+            # Group initial sections by parent act to identify top acts
+            from collections import Counter
+
+            act_hit_counts = Counter(sec.legislation_id for sec in sections)
+            top_acts = [act_id for act_id, _ in act_hit_counts.most_common(3)]
+
+            # Fetch additional sections from top acts for fuller coverage
+            seen_section_ids = {sec.id for sec in sections}
+            enrich_tasks = []
+            for act_id in top_acts:
+                enrich_tasks.append(
+                    client.search_legislation_sections(
+                        query, legislation_id=act_id, size=8, include_text=True
+                    )
+                )
+
+            extra_sections = []
+            if enrich_tasks:
+                enrich_results = await asyncio.gather(*enrich_tasks, return_exceptions=True)
+                for result in enrich_results:
+                    if isinstance(result, list):
+                        for sec in result:
+                            if sec.id not in seen_section_ids:
+                                extra_sections.append(sec)
+                                seen_section_ids.add(sec.id)
+
+            all_sections = sections + extra_sections
             sources: list[object] = []
 
             # Section-level sources (primary — these have the actual provision text)
-            for sec in sections:
+            for sec in all_sections:
                 act_name = act_titles.get(sec.legislation_id, "")
                 if not act_name:
-                    # Fall back to type/year/number if act not in search results
                     act_name = (
                         f"{sec.legislation_type.value.upper()} "
                         f"{sec.legislation_year} c.{sec.legislation_number}"
@@ -238,7 +268,7 @@ class OrchestratorAgent:
                 )
 
             # Add act-level sources for acts not already covered by sections
-            covered_acts = {sec.legislation_id for sec in sections}
+            covered_acts = {sec.legislation_id for sec in all_sections}
             for item in act_result.results:
                 if item.get("id", "") not in covered_acts:
                     sources.append(
@@ -258,7 +288,8 @@ class OrchestratorAgent:
                 "legislation_rest_search_complete",
                 tenant_id=str(tenant_id),
                 sources_found=len(sources),
-                section_sources=len(sections),
+                section_sources=len(all_sections),
+                enriched_sections=len(extra_sections),
                 act_sources=len(act_result.results),
             )
             return sources
@@ -320,6 +351,13 @@ class OrchestratorAgent:
                 "\n\n**IMPORTANT**: Use ONLY the sources provided above to answer "
                 "the user's question. Cite sources inline using their exact citations. "
                 "If the provided sources don't contain enough information, say so clearly."
+                "\n\n**NOTE ON LEGISLATION SOURCES**: The legislation sections above are "
+                "the most relevant provisions retrieved from the indexed legislation "
+                "database. They represent the key provisions matching the user's query, "
+                "not the complete text of each Act. Treat these as authoritative extracts "
+                "from the current revised versions of UK legislation. Do NOT caveat that "
+                "you only have partial access — instead, answer substantively based on "
+                "the provisions provided and cite specific section numbers."
             )
 
         return prompt
