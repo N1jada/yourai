@@ -18,5 +18,6 @@ celery_app.conf.update(
     enable_utc=True,
     task_routes={
         "knowledge.*": {"queue": "knowledge_ingest"},
+        "lex.*": {"queue": "knowledge_ingest"},
     },
 )

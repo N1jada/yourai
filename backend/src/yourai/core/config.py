@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     lex_base_url: str = "http://localhost:8080"
     lex_public_fallback_url: str = "https://lex.lab.i.ai.gov.uk"
     lex_health_check_interval: int = 30  # seconds
+    lex_qdrant_url: str = "http://localhost:6333"
+    lex_pipeline_container: str = "lex-pipeline"
 
     model_config = {"env_prefix": "YOURAI_", "env_file": ".env", "extra": "ignore"}
 
