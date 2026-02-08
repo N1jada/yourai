@@ -66,6 +66,8 @@ services:
       context: ./lex
       dockerfile: ./src/lex/Dockerfile
     container_name: lex-pipeline
+    env_file:
+      - ./lex/.env
     environment:
       - QDRANT_HOST=http://lex-qdrant:6333
       - QDRANT_GRPC_PORT=6334
